@@ -3,11 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 
-
 class DatasetFactory:
     @staticmethod
     def create(config: dict[str, Any]):
-        dataset_cfg = config["dataset"]
+        config["dataset"]
         task_type = config["task"]["type"]
 
         # if task_type == "classification":

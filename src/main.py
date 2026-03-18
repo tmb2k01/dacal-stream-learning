@@ -1,12 +1,12 @@
-from factories import (
-    TaskFactory,
-    DatasetFactory,
-    ModelFactory,
-    CalibratorFactory,
-    PolicyFactory,
-    DriftDetectorFactory,
-)
 from engine.stream_engine import DriftAdaptiveActiveLearningEngine
+from factories import (
+    CalibratorFactory,
+    DatasetFactory,
+    DriftDetectorFactory,
+    ModelFactory,
+    PolicyFactory,
+    TaskFactory,
+)
 
 # config = load_config("configs/experiment.yaml")
 config = None

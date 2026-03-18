@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+
 
 class BaseConformalCalibrator(ABC):
     @abstractmethod
-    def predict_set(self, prediction: Dict, x=None) -> Dict:
+    def predict_set(self, prediction: dict, x=None) -> dict:
         pass
 
     @abstractmethod
-    def update(self, prediction: Dict, y_true) -> None:
+    def update(self, prediction: dict, y_true) -> None:
         pass
 
     @abstractmethod

@@ -1,4 +1,5 @@
-from active_learning import UncertaintySamplingPolicy, HybridActivePolicy
+from active_learning import HybridActivePolicy, UncertaintySamplingPolicy
+
 
 class PolicyFactory:
     @staticmethod
@@ -6,13 +7,11 @@ class PolicyFactory:
         name = config["active_policy"]["name"]
 
         if name == "uncertainty":
-            return UncertaintySamplingPolicy(
-                threshold=config["active_policy"]["threshold"]
-            )
+            return UncertaintySamplingPolicy(threshold=config["active_policy"]["threshold"])
         if name == "hybrid":
             return HybridActivePolicy(
                 unc_threshold=config["active_policy"]["unc_threshold"],
-                set_size_threshold=config["active_policy"]["set_size_threshold"]
+                set_size_threshold=config["active_policy"]["set_size_threshold"],
             )
 
         raise ValueError(name)
