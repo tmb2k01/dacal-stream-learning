@@ -1,17 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+
 
 class BaseActivePolicy(ABC):
     @abstractmethod
-    def should_query(
-        self,
-        x,
-        prediction: Dict,
-        conformal_output: Dict,
-        state: Dict
-    ) -> bool:
+    def should_query(self, x, prediction: dict, conformal_output: dict, state: dict) -> bool:
         pass
 
     @abstractmethod
-    def update(self, feedback: Dict) -> None:
+    def update(self, feedback: dict) -> None:
         pass

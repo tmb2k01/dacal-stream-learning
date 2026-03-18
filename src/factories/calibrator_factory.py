@@ -10,11 +10,11 @@ class CalibratorFactory:
         task_type = config["task"]["type"]
         name = calibrator_cfg["name"]
 
-        alpha = calibrator_cfg.get("alpha", 0.1)
-        window_size = calibrator_cfg.get("window_size", 200)
-        min_window_size = calibrator_cfg.get("min_window_size", 50)
-        max_window_size = calibrator_cfg.get("max_window_size", 500)
-        decay = calibrator_cfg.get("decay", 0.01)
+        calibrator_cfg.get("alpha", 0.1)
+        calibrator_cfg.get("window_size", 200)
+        calibrator_cfg.get("min_window_size", 50)
+        calibrator_cfg.get("max_window_size", 500)
+        calibrator_cfg.get("decay", 0.01)
 
         # if task_type == "classification":
         #     if name == "sliding_window":
@@ -66,6 +66,4 @@ class CalibratorFactory:
         #             decay=decay,
         #         )
 
-        raise ValueError(
-            f"Unsupported calibrator '{name}' for task type '{task_type}'"
-        )
+        raise ValueError(f"Unsupported calibrator '{name}' for task type '{task_type}'")

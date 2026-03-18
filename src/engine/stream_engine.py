@@ -1,9 +1,10 @@
-from engine import EngineState
-from tasks import BaseTask
-from models import BasePredictor
-from conformal import BaseConformalCalibrator
 from active_learning import BaseActivePolicy
+from conformal import BaseConformalCalibrator
 from drift import BaseDriftDetector
+from engine import EngineState
+from models import BasePredictor
+from tasks import BaseTask
+
 
 class DriftAdaptiveActiveLearningEngine:
     def __init__(
@@ -54,12 +55,14 @@ class DriftAdaptiveActiveLearningEngine:
 
             self.predictor.update_online(x, y)
             self.calibrator.update(prediction, y)
-            self.active_policy.update({
-                "x": x,
-                "y": y,
-                "prediction": prediction,
-                "drift": drift_event.drift,
-            })
+            self.active_policy.update(
+                {
+                    "x": x,
+                    "y": y,
+                    "prediction": prediction,
+                    "drift": drift_event.drift,
+                }
+            )
 
         self.state.step += 1
 

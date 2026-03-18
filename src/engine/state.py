@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Any
+
 
 @dataclass
 class EngineState:
@@ -7,4 +8,4 @@ class EngineState:
     drift_mode: bool = False
     queried_count: int = 0
     labeled_count: int = 0
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, Any] = field(default_factory=dict)

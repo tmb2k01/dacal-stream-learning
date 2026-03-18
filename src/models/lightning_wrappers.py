@@ -4,6 +4,7 @@ import torch.nn as nn
 
 from models.base import BasePredictor
 
+
 class LightningOnlineModel(pl.LightningModule, BasePredictor):
     def __init__(self, backbone: nn.Module, task_type: str, lr: float = 1e-3):
         super().__init__()
@@ -54,7 +55,11 @@ class LightningOnlineModel(pl.LightningModule, BasePredictor):
 
     def update_online(self, x, y):
         self.train()
-        optimizer = self.optimizers() if self.trainer is not None else torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = (
+            self.optimizers()
+            if self.trainer is not None
+            else torch.optim.Adam(self.parameters(), lr=self.lr)
+        )
         optimizer.zero_grad()
         out = self.forward(x)
         loss = self._compute_loss(out, y)
