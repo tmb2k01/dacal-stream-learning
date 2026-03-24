@@ -1,0 +1,15 @@
+{
+    "name": "Drift-Adaptive Conformal Active Learning",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "workspaceFolder": "/home/ws",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/ws,type=bind",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter"
+            ]
+        }
+    },
+    "postCreateCommand": "pip install -r requirements.txt"
+}
