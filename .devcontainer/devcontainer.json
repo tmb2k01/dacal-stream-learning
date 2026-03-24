@@ -1,7 +1,6 @@
 {
     "name": "Drift-Adaptive Conformal Active Learning",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
-    "privileged": true,
     "workspaceFolder": "/home/ws",
     "workspaceMount": "source=${localWorkspaceFolder},target=/home/ws,type=bind",
     "customizations": {
