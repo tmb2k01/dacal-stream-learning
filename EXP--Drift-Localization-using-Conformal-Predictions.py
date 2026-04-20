@@ -21,7 +21,7 @@ assert len(sys.argv) in [1,2], str(list(sys.argv))
 if len(sys.argv) == 2:
     param = int(sys.argv[1])
 else:
-    param = -1
+    param = -2
 
 
 res, t_save = [], time()
@@ -29,10 +29,10 @@ for split_id,(q,loader,size) in enumerate(tqdm(500*[(.8,FishHeadLoader(),500),(.
     loader.ratio(ratio_non_drifting=q)
     X,os,ds,z = loader.take(size)
 
-    for localizer in [ForestLocalizer(),LDDLocalizer(),kdqTreeLocalizer(only_before=False), 
-          KNNLocalizer(),RandomTreeLocalizer(),TreeLocalizer(),
-          ConformalLocalizer(model=DecisionTreeClassifier(), cv_params={"min_samples_leaf": [10,15,20,30,50,100]}),
-          ConformalLocalizer(model=MLPClassifier(max_iter=1000), cv_params={'hidden_layer_sizes': [(10,), (50,), (100,)], 'alpha': [0.0001, 0.001, 0.01]})]:
+    for localizer_name,localizer in [("MB-DL RF",ForestLocalizer()),("LDD",LDDLocalizer()),("kdqTree",kdqTreeLocalizer(only_before=False)), 
+          ("MB-DL kNN",KNNLocalizer()),("MB-DL RT",RandomTreeLocalizer()),("MB-DL DT",TreeLocalizer()),
+          ("CP DT",ConformalLocalizer(model=DecisionTreeClassifier(), cv_params={"min_samples_leaf": [10,15,20,30,50,100]})),
+          ("CP MLP",ConformalLocalizer(model=MLPClassifier(max_iter=1000), cv_params={'hidden_layer_sizes': [(10,), (50,), (100,)], 'alpha': [0.0001, 0.001, 0.01]}))]:
         try:
             localizer = clone(localizer)
             
@@ -43,10 +43,11 @@ for split_id,(q,loader,size) in enumerate(tqdm(500*[(.8,FishHeadLoader(),500),(.
             
             assert (~np.isnan(p)).all()
             res.append({"param": param, "exp_id": split_id, 
-                        "q": q, "size": size, "loader": str(loader), 
-                        "localizer": str(localizer), "drifting samples": ds.sum(),
+                        "q": q, "size": size, "loader": type(loader).__name__, 
+                        "localizer": localizer_name, "drifting samples": ds.sum(),
                         "score": roc_auc_score(ds,1-p), 
                         "time": t1-t0})
+            print(res[-1])
         except Exception as e:
             print(q,loader,localizer,size,e)
     if time() - t_save > 10*60:
