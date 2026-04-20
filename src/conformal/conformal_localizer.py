@@ -1,9 +1,9 @@
 import numpy as np
+from joblib import Parallel, delayed
+from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import LabelEncoder
-from sklearn.base import clone, BaseEstimator, ClassifierMixin
-from joblib import Parallel, delayed
 
 from conformal.util import greedy_cover
 

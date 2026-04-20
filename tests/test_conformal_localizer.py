@@ -1,16 +1,14 @@
 """Unit tests for ConformalLocalizer and ConformalLocalizerCalibrator."""
 
-import sys
 import os
+import sys
 
 # Ensure src is on the path when running from the project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import numpy as np
 import pytest
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsRegressor
 
 from conformal.conformal_localizer import (
     ConformalLocalizer,
@@ -19,7 +17,6 @@ from conformal.conformal_localizer import (
 )
 from conformal.localizer_calibrator import ConformalLocalizerCalibrator
 from conformal.util import greedy_cover
-
 
 # ---------------------------------------------------------------------------
 # Helpers
