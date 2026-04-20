@@ -91,7 +91,7 @@ class FishHeadLoader:
         train_observation_state[np.random.choice(np.where(z[sel]==0)[0],size=(z[sel]==0).sum()//2,replace=False)] = 1
 
         if create_testset:
-            nsel = np.zeros(embedding.shape[0], dtype=bool)
+            nsel = np.ones(embedding.shape[0], dtype=bool)
             nsel[sel] = False
             return (embedding[sel],train_observation_state,np.abs(z[sel]),z[sel]), (embedding[nsel],z[nsel])
 
