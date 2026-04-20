@@ -104,4 +104,3 @@ class ConformalLocalizerCalibrator(BaseConformalCalibrator):
         self._buffer_X = []
         self._buffer_y = []
         self._localizer.localizer_trained = None
-

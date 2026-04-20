@@ -17,4 +17,3 @@ def greedy_cover(M, w, d, selected=None):
         r[M[i]] += 1
         selected[i] = True
     return selected
-

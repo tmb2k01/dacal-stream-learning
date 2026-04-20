@@ -1,4 +1,5 @@
 """Unit tests for ConformalLocalizer and ConformalLocalizerCalibrator."""
+
 import sys
 import os
 
@@ -24,6 +25,7 @@ from conformal.util import greedy_cover
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_binary_dataset(n=300, n_features=4, seed=0):
     """Return a balanced binary classification dataset."""
     rng = np.random.default_rng(seed)
@@ -47,6 +49,7 @@ def make_fast_localizer(alpha=0.2):
 # ---------------------------------------------------------------------------
 # greedy_cover
 # ---------------------------------------------------------------------------
+
 
 class TestGreedyCover:
     def test_returns_boolean_mask(self):
@@ -75,6 +78,7 @@ class TestGreedyCover:
 # get_ib_bootstraps
 # ---------------------------------------------------------------------------
 
+
 class TestGetIbBootstraps:
     def test_shape(self):
         bootstraps = get_ib_bootstraps(
@@ -94,6 +98,7 @@ class TestGetIbBootstraps:
 # ---------------------------------------------------------------------------
 # evaluate_bootstrap
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluateBootstrap:
     def test_returns_p_values_and_messages(self):
@@ -128,6 +133,7 @@ class TestEvaluateBootstrap:
 # ---------------------------------------------------------------------------
 # ConformalLocalizer
 # ---------------------------------------------------------------------------
+
 
 class TestConformalLocalizer:
     def test_fit_predict_shape(self):
@@ -197,6 +203,7 @@ class TestConformalLocalizer:
 # ---------------------------------------------------------------------------
 # ConformalLocalizerCalibrator
 # ---------------------------------------------------------------------------
+
 
 class TestConformalLocalizerCalibrator:
     def _make_calibrator(self, min_recalibrate_samples=10):
@@ -314,4 +321,3 @@ class TestConformalLocalizerCalibrator:
         cal.reset()
         out = cal.predict_set({}, x=X[0])
         assert out["p_value"] is None
-

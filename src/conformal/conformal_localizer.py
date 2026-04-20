@@ -126,7 +126,11 @@ class ConformalLocalizer(BaseEstimator, ClassifierMixin):
         for i, (p_i, msg) in enumerate(
             Parallel(n_jobs=self.n_jobs)(
                 delayed(evaluate_bootstrap)(
-                    X, y, bootstrap, base_model, n_samples,
+                    X,
+                    y,
+                    bootstrap,
+                    base_model,
+                    n_samples,
                     (1 / self.alpha + 1) if self.alpha > 0 else float("inf"),
                 )
                 for bootstrap in bootstraps
@@ -156,4 +160,3 @@ class ConformalLocalizer(BaseEstimator, ClassifierMixin):
         if self.localizer_trained is None:
             raise ValueError("ConformalLocalizer is not fitted yet. Call fit() first.")
         return self.localizer_trained.predict(X)
-
