@@ -23,9 +23,12 @@ Drift localization is particularly relevant for model-based drift explanation [3
 
 Here are the primary papers that this repository is based on:
 
-TODO
+* **Dasu, T. and Krishnan, S. and Venkatasubramanian, S. and Yi, K.** *An information-theoretic approach to detecting changes in multi-dimensional data streams* Proc. Symp. on the Interface of Statistics, Computing Science, and Applications, 2006.
+* **Dong, F. and Lu, J. and Li, K. and Zhang, G.** *Concept drift region identification via competence-based discrepancy distribution estimation* 2017 12th International Conference on Intelligent Systems and Knowledge Engineering (ISKE), 2017.
+* **Hinder, F., Vaquet, V., Brinkrolf, J., Artelt, A., & Hammer, B.** *Localization of concept drift: Identifying the drifting datapoints.* IJCNN 2022. [PDF link](https://arxiv.org/abs/2200.00000)
+* **Hinder, F., Vaquet, V., Brinkrolf, J., & Hammer, B. (2026).** *Drift Localization using Conformal Predictions* ArXiv, 2026.
 
-##Requirements
+## Requirements
 
 * Python 3.x
 * Numpy, SciPy, Pandas, Matplotlib
@@ -37,10 +40,9 @@ TODO
 
 ## References
 
-* [1] **Hinder, F., Vaquet, V., Brinkrolf, J., Artelt, A., & Hammer, B. (2022).** *Localization of concept drift: Identifying the drifting datapoints.* IJCNN 2022. [PDF link](https://arxiv.org/abs/2200.00000)
-* [2] **Hinder, F., Vaquet, V., & Hammer, B. (2024).** *One or two things we know about concept drift — Part B: locating and explaining concept drift.* Frontiers in AI. [PDF link](https://doi.org/10.3389/frai.2024.00000)
-* [3] **Hinder, F., Vaquet, V., Brinkrolf, J., & Hammer, B. (2023).** *Model-based explanations of concept drift.* Neurocomputing 2023. [PDF link](https://arxiv.org/abs/2300.00000)
-
+* [1] **Hinder, F., Vaquet, V., Brinkrolf, J., Artelt, A., & Hammer, B.** *Localization of concept drift: Identifying the drifting datapoints.* IJCNN 2022. [PDF link](https://arxiv.org/abs/2200.00000)
+* [2] **Hinder, F., Vaquet, V., & Hammer, B.** *One or two things we know about concept drift — Part B: locating and explaining concept drift.* Frontiers in AI. [PDF link](https://doi.org/10.3389/frai.2024.00000)
+* [3] **Hinder, F., Vaquet, V., Brinkrolf, J., & Hammer, B.** *Model-based explanations of concept drift.* Neurocomputing 2023. [PDF link](https://arxiv.org/abs/2300.00000)
 
 ## License
 This code has an MIT license.
