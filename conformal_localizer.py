@@ -5,19 +5,9 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.base import clone, BaseEstimator, ClassifierMixin, RegressorMixin
 from joblib import Parallel, delayed
 
-from util import greedy_cover
+from util import get_oob_bootstraps
 
-def get_ib_bootstraps(population_size, oob_times, bootstrap_fraction=.1, n_repititions=50):
-    S = np.random.choice(range(population_size), size=(n_repititions*oob_times,int(bootstrap_fraction*population_size)), replace=True)
-    M = np.ones(shape=(S.shape[0],population_size))
-    
-    for i,s in enumerate(S):
-        M[i][s] = 0
-    
-    s = greedy_cover(1-M, np.ones(M.shape[0]), oob_times)
-    return S[s]
-
-def evaluate_bootstrap(X, y, bootstrap, base_model, n_samples, min_test_size):
+def evaluate_bootstrap(X, y, bootstrap, base_model, n_samples, min_test_size, loocp):
     p_i = np.nan*np.ones( shape=(n_samples) )
     msg = []
     
@@ -32,17 +22,29 @@ def evaluate_bootstrap(X, y, bootstrap, base_model, n_samples, min_test_size):
         if np.unique(y[test_index], return_counts=True)[1].min() < min_test_size: 
             msg.append("WARN few test samples (%i), try reducing bootstrap fraction. Instable precition"%np.unique(y[test_index], return_counts=True)[1].min())
     
-        ## CONFORMAL PREDICTION ON IB SMAPLES USING OOB AS CLIBRATION SET
+        ## (LOO) CONFORMAL PREDICTION ON OOB AS CALIBRATION SET
         probs = clone(base_model).fit(X[bootstrap],y[bootstrap]).predict_proba(X)[:,1]
-        pos_cls0 = test_index[y[test_index] == 0]
-        pos_cls1 = test_index[y[test_index] == 1]
-        p_i[train_index] = np.minimum(
-            ((probs[train_index,None] <= probs[None,pos_cls0]).sum(axis=1)+1)/(pos_cls0.shape[0]+1),
-            ((probs[train_index,None] >= probs[None,pos_cls1]).sum(axis=1)+1)/(pos_cls1.shape[0]+1) )
+        pos_cls0 = np.where(y[test_index] == 0)[0]
+        pos_cls1 = np.where(y[test_index] == 1)[0]
+
+        ## NO LOO CP VALUES
+        cp_0 = ((probs[test_index,None] <= probs[None,test_index[pos_cls0]]).sum(axis=1)+1)/(pos_cls0.shape[0]+1)
+        cp_1 = ((probs[test_index,None] >= probs[None,test_index[pos_cls1]]).sum(axis=1)+1)/(pos_cls1.shape[0]+1)
+
+        if loocp:
+            cp_0[pos_cls0] /= (pos_cls0.shape[0]+1)/pos_cls0.shape[0]
+            cp_0[pos_cls0] -= 1/pos_cls0.shape[0]
+    
+            cp_1[pos_cls1] /= (pos_cls1.shape[0]+1)/pos_cls1.shape[0]
+            cp_1[pos_cls1] -= 1/pos_cls1.shape[0]
+
+        p_i[test_index] = np.minimum(cp_0,cp_1)
+        if np.isnan(p_i[test_index]).any():
+            msg.append("WARN Incomplete construction")
     return p_i, msg
 
 class ConformalLocalizer(BaseEstimator, ClassifierMixin):
-    def __init__(self, model, cv_params={}, cv_runs=5, localizer=KNeighborsRegressor(n_neighbors=1), n_min_members=100, bootstrap_fraction=1., cover_search=50, alpha=0.2, n_jobs=-1):
+    def __init__(self, model, cv_params={}, cv_runs=5, localizer=KNeighborsRegressor(n_neighbors=1), n_min_members=100, bootstrap_fraction=1., bootstrap_params={}, alpha=0.2, loocp=True, n_jobs=-1):
         assert hasattr(model, "predict_proba")
         
         self.model = model
@@ -52,14 +54,15 @@ class ConformalLocalizer(BaseEstimator, ClassifierMixin):
         self.localizer_trained = None
         self.n_min_members = n_min_members
         self.bootstrap_fraction = bootstrap_fraction
-        self.cover_search = cover_search
+        self.bootstrap_params = bootstrap_params
         self.alpha=alpha
+        self.loocp=loocp
         self.n_jobs = n_jobs
         
     def get_info(self):
         return {"base model": str(self.model), "cv parameter": self.cv_params, "cv runs": self.cv_runs, "localizer model": str(self.localizer_model), 
-                "min members": self.n_min_members, "bootstrap fraction": self.bootstrap_fraction, "cover_search": self.cover_search, 
-                "alpha": self.alpha, "jobs": self.n_jobs, "call": str(self), "class": self.__class__.__name__}
+                "min members": self.n_min_members, "bootstrap fraction": self.bootstrap_fraction, "bootstrap_params": self.bootstrap_params, 
+                "alpha": self.alpha, "loocp": self.loocp, "jobs": self.n_jobs, "call": str(self), "class": self.__class__.__name__}
     def fit(self, X, y):
         assert len(X.shape) == 2 and X.shape[1] > 0 and X.shape[0] > 0
         assert len(y.shape) == 1 and np.unique(y).shape[0] == 2
@@ -70,11 +73,13 @@ class ConformalLocalizer(BaseEstimator, ClassifierMixin):
         base_model = clone(self.model)
         base_model.set_params(**GridSearchCV(estimator=clone(self.model), param_grid=self.cv_params, cv=self.cv_runs, n_jobs=self.n_jobs).fit(X,y).best_params_)
 
-        bootstraps = get_ib_bootstraps(n_samples, self.n_min_members, bootstrap_fraction=self.bootstrap_fraction, n_repititions=self.cover_search)
+        bootstraps = get_oob_bootstraps(n_samples, self.n_min_members+2, bootstrap_fraction=self.bootstrap_fraction, **self.bootstrap_params)
 
         p = np.empty( shape=(bootstraps.shape[0],n_samples) )
         msgs = []
-        for i,(p_i,msg) in enumerate(Parallel(n_jobs=self.n_jobs)(delayed(evaluate_bootstrap)(X,y,bootstrap, base_model, n_samples, 1/self.alpha+1) for bootstrap in bootstraps)):
+        
+
+        for i,(p_i,msg) in enumerate(Parallel(n_jobs=self.n_jobs)(delayed(evaluate_bootstrap)(X, y, bootstrap, base_model, n_samples, 1/self.alpha+1, self.loocp) for bootstrap in bootstraps)):
             msgs += msg
             p[i] = p_i
         
