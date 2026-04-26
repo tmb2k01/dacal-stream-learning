@@ -12,5 +12,8 @@
             ]
         }
     },
-    "postCreateCommand": "pip install -r requirements.txt"
+    "features": {
+        "ghcr.io/devcontainer-community/devcontainer-features/astral.sh-uv:1": {}
+    },
+    "postCreateCommand": "uv venv .venv && uv pip install --python .venv/bin/python . && echo 'source .venv/bin/activate' >> ~/.bashrc"
 }
