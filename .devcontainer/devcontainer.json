@@ -15,5 +15,5 @@
     "features": {
         "ghcr.io/devcontainer-community/devcontainer-features/astral.sh-uv:1": {}
     },
-    "postCreateCommand": "uv venv && uv pip install . && echo 'source .venv/bin/activate' >> ~/.bashrc"
+    "postCreateCommand": "uv venv .venv && uv pip install --python .venv/bin/python . && echo 'source .venv/bin/activate' >> ~/.bashrc"
 }
