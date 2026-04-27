@@ -15,7 +15,7 @@ from model_based import ForestLocalizer, KNNLocalizer, RandomTreeLocalizer
 from tree_localizer import TreeLocalizer
 from conformal_localizer import ConformalLocalizer
 
-from dataloader import NoImageNetLoader, FashionMNISTLoader, FishHeadLoader
+from dataloader import NoImageNetLoader, FashionMNISTLoader, FishHeadLoader, SyntheticTimeSeriesLoader
 
 assert len(sys.argv) in [1,2], str(list(sys.argv))
 if len(sys.argv) == 2:
@@ -25,9 +25,15 @@ else:
 
 
 res, t_save = [], time()
-for split_id,(q,loader,size) in enumerate(tqdm(500*[(.8,FishHeadLoader(),500),(.9,NoImageNetLoader(),120),(.9,FashionMNISTLoader(),120)])):
+for split_id,(q,loader,size) in enumerate(tqdm(2*[
+    # (.8,FishHeadLoader(),500),
+    # (.9,NoImageNetLoader(),120),
+    # (.9,FashionMNISTLoader(),120),
+    (.8, SyntheticTimeSeriesLoader(),500)
+    ])):
     loader.ratio(ratio_non_drifting=q)
     X,os,ds,z = loader.take(size)
+    loader.plot(X, os, ds)
 
     for localizer_name,localizer in [("MB-DL RF",ForestLocalizer()),("LDD",LDDLocalizer()),("kdqTree",kdqTreeLocalizer(only_before=False)), 
           ("MB-DL kNN",KNNLocalizer()),("MB-DL RT",RandomTreeLocalizer()),("MB-DL DT",TreeLocalizer()),
@@ -60,7 +66,7 @@ for split_id,(q,loader,size) in enumerate(tqdm(500*[(.8,FishHeadLoader(),500),(.
 
 while True:
     try:
-        pd.DataFrame(res).to_pickle(f"out/res_{param}.pkl.xz")
+        pd.DataFrame(res).to_csv(f"out/res_syn_{param}.csv")
         break
     except Exception as e:
         print(e)

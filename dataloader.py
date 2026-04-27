@@ -96,4 +96,74 @@ class FishHeadLoader:
             return (embedding[sel],train_observation_state,np.abs(z[sel]),z[sel]), (embedding[nsel],z[nsel])
 
         return embedding[sel],train_observation_state,np.abs(z[sel]),z[sel]
+    
+class SyntheticTimeSeriesLoader:
+    def __init__(self, ratio_non_drifting=0.5, n_features=2):
+        self.q = ratio_non_drifting
+        self.n_features = n_features
+        
+    def ratio(self, ratio_non_drifting=None):
+        if ratio_non_drifting is not None:
+            self.q = ratio_non_drifting
+            
+    def take(self, size, create_testset=False):
+        # 1. Simulate time steps
+        t = np.arange(size)
+        
+        # 2. Observation State (os): 0 = before drift, 1 = after drift
+        # We trigger the concept drift exactly halfway through the data stream.
+        os_flag = (t >= size // 2).astype(int)
+        
+        # 3. Ground Truth Subpopulations (z): 0 = stationary, 1 = drifting subpopulation
+        z = np.random.choice([0, 1], size=size, p=[self.q, 1 - self.q])
+        
+        # 4. Drift State (ds): Ground truth for the localizer
+        ds = z.copy() 
+        
+        X = np.zeros((size, self.n_features))
+        
+        # 5. Generate the feature data based on populations and time
+        for i in range(size):
+            if z[i] == 0:
+                # Stationary Subpopulation: Mean remains constant
+                X[i] = np.random.normal(loc=-2.0, scale=1.0, size=self.n_features)
+            else:
+                # Drifting Subpopulation: Mean shifts after halfway mark
+                if os_flag[i] == 0:
+                    X[i] = np.random.normal(loc=2.0, scale=1.0, size=self.n_features)
+                else:
+                    X[i] = np.random.normal(loc=6.0, scale=1.0, size=self.n_features)
+                    
+        if create_testset:
+            raise NotImplementedError("create_testset not currently supported for synthetic series.")
+            
+        return X, os_flag, ds, z
+
+    def plot(self, X, os_flag, ds):
+
+        import matplotlib.pyplot as plt
+        
+        plt.figure(figsize=(14, 6))
+        time_steps = np.arange(X.shape[0])
+        
+        # Plot stationary population
+        stat_mask = (ds == 0)
+        plt.scatter(time_steps[stat_mask], X[stat_mask, 0], 
+                    alpha=0.5, label='Stationary Population (Stays ~ -2.0)', color='blue', s=15)
+        
+        # Plot drifting population
+        drift_mask = (ds == 1)
+        plt.scatter(time_steps[drift_mask], X[drift_mask, 0], 
+                    alpha=0.5, label='Drifting Population (Shifts 2.0 -> 6.0)', color='red', s=15)
+        
+        # Find the exact moment the drift happens (when os_flag switches to 1)
+        drift_idx = np.where(os_flag == 1)[0][0]
+        plt.axvline(x=drift_idx, color='black', linestyle='--', linewidth=2, label=f'Drift Trigger (Time={drift_idx})')
+        
+        plt.title('Synthetic Concept Drift Over Time (Feature 1)')
+        plt.xlabel('Time Step')
+        plt.ylabel('Feature 1 Value')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.show()
 
