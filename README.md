@@ -1,6 +1,25 @@
 # dacal-stream-learning
 Modular research framework for drift-adaptive conformal active learning in streaming ML. Combines concept drift detection, conformal calibration, and active query policies with interchangeable models, datasets, and detectors. Built on PyTorch Lightning for rapid experimentation with classification, regression, and time series streams.
 
+## Synthetic drift dataset generator
+The project now includes `SyntheticDriftStreamDataset` in `src/data/synthetic_drift_dataset.py`.
+It produces a deterministic binary stream with abrupt phase-wise concept drift.
+
+Minimal config example for `DatasetFactory`:
+```yaml
+task:
+  type: classification
+
+dataset:
+  name: synthetic_drift
+  seed: 42
+  n_per_phase: 1000
+  n_phases: 4
+  n_features: 10
+  noise_std: 0.6
+  drift_angle: 1.5707963267948966
+```
+
 ## Protocol comparison runner
 Use `playground/compare_conformal_protocols.py` to compare ROC-AUC under two evaluation protocols:
 - notebook-style (`phase 0` training, drift-window labels),
