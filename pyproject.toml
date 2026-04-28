@@ -1,6 +1,6 @@
 [project]
 name = "dacal-stream-learning"
-version = "0.0.1"
+version = "0.0.2"
 description = "A stream learning library for concept drift detection and adaptive learning."
 requires-python = ">=3.12,<3.13"
 dependencies = [
