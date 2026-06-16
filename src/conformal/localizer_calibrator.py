@@ -26,15 +26,19 @@ class ConformalLocalizerCalibrator(BaseConformalCalibrator):
         self,
         model,
         alpha: float = 0.2,
-        cv_params: dict = {},
+        cv_params: dict = None,
         cv_runs: int = 5,
-        localizer=KNeighborsRegressor(n_neighbors=1),
+        localizer=None,
         n_min_members: int = 100,
         bootstrap_fraction: float = 1.0,
         cover_search: int = 50,
         n_jobs: int = -1,
         min_recalibrate_samples: int = 200,
     ):
+        if cv_params is None:
+            cv_params = {}
+        if localizer is None:
+            localizer = KNeighborsRegressor(n_neighbors=1)
         self.alpha = alpha
         self.min_recalibrate_samples = min_recalibrate_samples
         self._localizer = ConformalLocalizer(

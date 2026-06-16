@@ -228,7 +228,7 @@ class TestConformalLocalizerCalibrator:
     def test_update_accumulates_buffer(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=20)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         assert len(cal._buffer_y) == 20
         assert len(cal._buffer_X) == 20
@@ -243,7 +243,7 @@ class TestConformalLocalizerCalibrator:
     def test_recalibrate_fits_localizer(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=200)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         cal.recalibrate()
         assert cal._localizer.localizer_trained is not None
@@ -258,7 +258,7 @@ class TestConformalLocalizerCalibrator:
         n = 200
         cal = self._make_calibrator(min_recalibrate_samples=n)
         X, y = make_binary_dataset(n=n)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         assert cal._localizer.localizer_trained is not None
 
@@ -267,7 +267,7 @@ class TestConformalLocalizerCalibrator:
     def test_predict_set_after_recalibrate(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=200)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         cal.recalibrate()
 
@@ -280,7 +280,7 @@ class TestConformalLocalizerCalibrator:
     def test_predict_set_p_value_in_unit_interval(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=200)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         cal.recalibrate()
 
@@ -294,7 +294,7 @@ class TestConformalLocalizerCalibrator:
     def test_reset_clears_buffer(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=20)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         cal.reset()
         assert cal._buffer_X == []
@@ -303,7 +303,7 @@ class TestConformalLocalizerCalibrator:
     def test_reset_clears_fitted_state(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=200)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         cal.recalibrate()
         cal.reset()
@@ -312,7 +312,7 @@ class TestConformalLocalizerCalibrator:
     def test_predict_set_returns_none_after_reset(self):
         cal = self._make_calibrator(min_recalibrate_samples=999)
         X, y = make_binary_dataset(n=200)
-        for xi, yi in zip(X, y):
+        for xi, yi in zip(X, y, strict=False):
             cal.update({"x": xi}, yi)
         cal.recalibrate()
         cal.reset()

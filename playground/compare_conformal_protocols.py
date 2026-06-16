@@ -7,7 +7,6 @@ import pandas as pd
 
 from experiments.protocol_compare import run_protocol_comparison
 
-
 if __name__ == "__main__":
     metrics = run_protocol_comparison(seed=42, alpha=0.2, drift_window=50, n_jobs=-1)
     table = pd.DataFrame(

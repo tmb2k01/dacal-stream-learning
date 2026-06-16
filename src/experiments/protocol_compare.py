@@ -148,4 +148,3 @@ def run_protocol_comparison(
         "notebook_auc_post_drift": notebook_auc_post,
         "original_like_auc_post_drift": original_like_auc_post,
     }
-

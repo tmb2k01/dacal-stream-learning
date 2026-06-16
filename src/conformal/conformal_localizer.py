@@ -34,9 +34,10 @@ def evaluate_bootstrap(X, y, bootstrap, base_model, n_samples, min_test_size):
         msg.append("WARN too small test set, try reducing bootstrap fraction. Skip iteration")
     else:
         if np.unique(y[test_index], return_counts=True)[1].min() < min_test_size:
+            min_class_count = np.unique(y[test_index], return_counts=True)[1].min()
             msg.append(
-                "WARN few test samples (%i), try reducing bootstrap fraction. Instable precition"
-                % np.unique(y[test_index], return_counts=True)[1].min()
+                f"WARN few test samples ({min_class_count}), "
+                "try reducing bootstrap fraction. Instable precition"
             )
         probs = clone(base_model).fit(X[bootstrap], y[bootstrap]).predict_proba(X)[:, 1]
         pos_cls0 = test_index[y[test_index] == 0]
@@ -56,15 +57,19 @@ class ConformalLocalizer(BaseEstimator, ClassifierMixin):
     def __init__(
         self,
         model,
-        cv_params: dict = {},
+        cv_params: dict = None,
         cv_runs: int = 5,
-        localizer=KNeighborsRegressor(n_neighbors=1),
+        localizer=None,
         n_min_members: int = 100,
         bootstrap_fraction: float = 1.0,
         cover_search: int = 50,
         alpha: float = 0.2,
         n_jobs: int = -1,
     ):
+        if cv_params is None:
+            cv_params = {}
+        if localizer is None:
+            localizer = KNeighborsRegressor(n_neighbors=1)
         assert hasattr(model, "predict_proba"), "model must implement predict_proba"
         self.model = model
         self.cv_params = cv_params
