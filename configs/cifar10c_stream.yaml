@@ -1,0 +1,28 @@
+task:
+  type: classification
+
+dataset:
+  name: cifar10c_stream
+  data_dir: data/CIFAR-10-C
+  labels_file: labels.npy
+  severity: 1
+  channel_first: false
+  normalize: false
+  dtype: float32
+  clean_root: data
+
+  segments:
+    - name: clean
+      corruption: clean
+      count: 200
+      start: 0
+    - name: gaussian-noise
+      corruption: gaussian_noise
+      count: 200
+      severity: 1
+      start: 0
+    - name: shot-noise
+      corruption: shot_noise
+      count: 200
+      severity: 1
+      start: 0

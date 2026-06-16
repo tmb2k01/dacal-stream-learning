@@ -210,3 +210,5 @@ artifacts/
 
 # Data files
 data/
+!src/data/
+!src/data/*.py
