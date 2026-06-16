@@ -135,3 +135,4 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
             return int(y_value)
 
         raise ValueError("Batch does not contain index or label information for oracle query.")
+

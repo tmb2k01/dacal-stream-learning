@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from data.synthetic_drift_dataset import SyntheticDriftStreamDataset
+from data import SyntheticDriftStreamDataset
 
 
 class DatasetFactory:

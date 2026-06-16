@@ -2,7 +2,7 @@
 Modular research framework for drift-adaptive conformal active learning in streaming ML. Combines concept drift detection, conformal calibration, and active query policies with interchangeable models, datasets, and detectors. Built on PyTorch Lightning for rapid experimentation with classification, regression, and time series streams.
 
 ## Synthetic drift dataset generator
-The project now includes `SyntheticDriftStreamDataset` in `src/data/synthetic_drift_dataset.py`.
+The project now includes `SyntheticDriftStreamDataset` in `src/data/synthetic_dataset.py`.
 It produces a deterministic binary stream with abrupt phase-wise concept drift.
 
 Minimal config example for `DatasetFactory`:
