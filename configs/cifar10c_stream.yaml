@@ -1,5 +1,30 @@
-task:
-  type: classification
+model:
+  name: simple_cnn
+  num_classes: 10
+  device: auto
+  checkpoint_path: artifacts/models/simplecnn_cifar10_seed42_ep10.pt
+  force_retrain: false
+  mean: [0.4914, 0.4822, 0.4465]
+  std: [0.2470, 0.2435, 0.2616]
+  dropout: 0.4
+  training:
+    auto_train: true
+    clean_root: data
+    seed: 42
+    epochs: 10
+    batch_size: 128
+    calibration_size: 5000
+    num_workers: 0
+    accelerator: auto
+    devices: auto
+    lr: 0.001
+    weight_decay: 0.0001
+    scheduler: cosine_annealing
+
+conformal:
+  name: classification
+  enabled: true
+  alpha: 0.1
 
 dataset:
   name: cifar10c_stream

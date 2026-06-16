@@ -16,8 +16,15 @@ dataset = SyntheticDriftStreamDataset.from_yaml("configs/synthetic_drift_stream.
 ## Example YAML
 
 ```yaml
-task:
-  type: classification
+model:
+  name: sgd_classifier
+  classes: [0, 1]
+  loss: log_loss
+  alpha: 0.0001
+  random_state: 42
+
+conformal:
+  enabled: false
 
 dataset:
   name: synthetic_drift

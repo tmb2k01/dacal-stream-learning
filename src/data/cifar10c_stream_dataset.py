@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from torchvision.datasets import CIFAR10
 
 from data.stream_dataset import BaseStreamDataset
 
@@ -168,14 +169,6 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
                 raise ValueError("clean_labels_file must be set when clean_data_file is used")
             y = np.load(self.clean_labels_file, mmap_mode="r")
             return X, y
-
-        try:
-            from torchvision.datasets import CIFAR10
-        except ImportError as exc:
-            raise ImportError(
-                "torchvision is required for clean CIFAR-10 segments unless "
-                "clean_data_file and clean_labels_file are provided"
-            ) from exc
 
         root = self.clean_root if self.clean_root is not None else self.data_dir.parent
         try:

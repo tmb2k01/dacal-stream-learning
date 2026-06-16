@@ -1,28 +1,32 @@
-from engine.stream_engine import DriftAdaptiveActiveLearningEngine
-from factories import (
-    CalibratorFactory,
-    DatasetFactory,
-    DriftDetectorFactory,
-    ModelFactory,
-    PolicyFactory,
-    TaskFactory,
-)
+from __future__ import annotations
 
-# config = load_config("configs/experiment.yaml")
-config = None
+import argparse
 
-task = TaskFactory.create(config)
-dataset = DatasetFactory.create(config)
-predictor = ModelFactory.create(config)
-calibrator = CalibratorFactory.create(config, task=task)
-active_policy = PolicyFactory.create(config)
-drift_detector = DriftDetectorFactory.create(config)
-label_oracle = dataset  # Assuming the dataset can serve as a label oracle for simplicity
-engine = DriftAdaptiveActiveLearningEngine(
-    task=task,
-    predictor=predictor,
-    calibrator=calibrator,
-    active_policy=active_policy,
-    drift_detector=drift_detector,
-    label_oracle=label_oracle,
-)
+from engine import build_simulation_from_yaml
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/cifar10c_stream.yaml")
+    parser.add_argument("--max-steps", type=int, default=None)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    engine, dataset = build_simulation_from_yaml(args.config)
+    result = engine.run(dataset, max_steps=args.max_steps)
+    metrics = result.state.metrics
+    print("Simulation metrics")
+    print(f"Steps: {result.state.step}")
+    if "efficiency" in metrics:
+        print(f"Efficiency: {metrics['efficiency']:.6f}")
+        print(f"Informativeness: {metrics['informativeness']:.6f}")
+        print(f"Coverage by classes: {metrics['coverage_by_class']}")
+        print(f"Coverage gaps by classes: {metrics['coverage_gap_by_class']}")
+    else:
+        print(f"Metrics: {metrics}")
+
+
+if __name__ == "__main__":
+    main()

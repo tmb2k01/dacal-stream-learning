@@ -1,3 +1,3 @@
-from active_learning.base import BaseActivePolicy
+from active_learning.base import BaseActivePolicy, HybridActivePolicy, UncertaintySamplingPolicy
 
-__all__ = ["BaseActivePolicy"]
+__all__ = ["BaseActivePolicy", "HybridActivePolicy", "UncertaintySamplingPolicy"]

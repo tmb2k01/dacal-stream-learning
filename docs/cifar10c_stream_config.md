@@ -12,9 +12,6 @@ dataset = CIFAR10CStreamDataset.from_yaml("configs/cifar10c_stream.yaml")
 ## Minimal YAML
 
 ```yaml
-task:
-  type: classification
-
 dataset:
   name: cifar10c_stream
   data_dir: data/CIFAR-10-C
@@ -111,3 +108,6 @@ Iteration yields dictionaries:
 
 `is_drift_point` is `true` on the first sample of every segment after the first.
 `drift_positions` contains those stream indices.
+
+See `docs/model_config.md` for the matching `SimpleCNN` model configuration
+and CIFAR-10 training defaults used by the playground notebooks.

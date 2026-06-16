@@ -15,7 +15,4 @@ class DatasetFactory:
         if dataset_name == "cifar10c_stream":
             return CIFAR10CStreamDataset.from_config(dataset_cfg)
 
-        raise ValueError(
-            "Unsupported dataset configuration. "
-            f"dataset.name={dataset_name!r}"
-        )
+        raise ValueError(f"Unsupported dataset configuration. dataset.name={dataset_name!r}")
