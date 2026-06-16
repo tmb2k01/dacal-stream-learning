@@ -6,7 +6,7 @@ import numpy as np
 # Ensure src is on the path when running from the project root
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from data.synthetic_drift_dataset import SyntheticDriftStreamDataset
+from data import SyntheticDriftStreamDataset
 from factories.dataset_factory import DatasetFactory
 
 
