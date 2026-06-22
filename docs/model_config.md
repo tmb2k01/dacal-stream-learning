@@ -33,7 +33,7 @@ model:
     scheduler: cosine_annealing
 ```
 
-This creates a `LightningSimpleCNNPredictor`, so training is done through a
+This creates a `SimpleCNN` LightningModule, so training is done through a
 Lightning `Trainer` while online prediction/update still uses the repository's
 `BasePredictor` interface. These defaults match the CIFAR playground notebooks:
 

@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import Any
+
+import numpy as np
 
 
 class BaseActivePolicy(ABC):
@@ -15,17 +18,15 @@ class UncertaintySamplingPolicy(BaseActivePolicy):
     def __init__(self, threshold: float):
         self.threshold = threshold
 
-    def should_query(self, x, prediction: dict, conformal_output: dict, state: dict) -> bool:
+    def should_query(self, x: Any, prediction: dict, conformal_output: dict, state: dict) -> bool:
         uncertainty = prediction.get("uncertainty")
         if uncertainty is not None:
-            if hasattr(uncertainty, "detach"):
-                uncertainty = uncertainty.detach().cpu().numpy()
-            return float(getattr(uncertainty, "max", lambda: uncertainty)()) >= self.threshold
+            return _max_value(uncertainty) >= self.threshold
 
         probs = prediction.get("probs")
         if probs is None:
             return False
-        max_prob = probs.max().item() if hasattr(probs.max(), "item") else float(probs.max())
+        max_prob = _max_value(probs)
         return 1.0 - max_prob >= self.threshold
 
     def update(self, feedback: dict) -> None:
@@ -36,16 +37,22 @@ class HybridActivePolicy(BaseActivePolicy):
     def __init__(self, unc_threshold: float, set_size_threshold: int):
         self.unc_threshold = unc_threshold
         self.set_size_threshold = set_size_threshold
+        self.uncertainty_policy = UncertaintySamplingPolicy(threshold=unc_threshold)
 
-    def should_query(self, x, prediction: dict, conformal_output: dict, state: dict) -> bool:
-        uncertainty_policy = UncertaintySamplingPolicy(threshold=self.unc_threshold)
-        if uncertainty_policy.should_query(x, prediction, conformal_output, state):
+    def should_query(self, x: Any, prediction: dict, conformal_output: dict, state: dict) -> bool:
+        if self.uncertainty_policy.should_query(x, prediction, conformal_output, state):
             return True
 
-        prediction_set = conformal_output.get("prediction_set")
-        if prediction_set is None:
+        set_size = conformal_output.get("set_size")
+        if set_size is None:
             return False
-        return len(prediction_set) >= self.set_size_threshold
+        return _max_value(set_size) >= self.set_size_threshold
 
     def update(self, feedback: dict) -> None:
         pass
+
+
+def _max_value(value: Any) -> float:
+    if hasattr(value, "detach"):
+        value = value.detach().cpu().numpy()
+    return float(np.asarray(value).max())

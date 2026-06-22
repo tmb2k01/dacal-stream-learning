@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from models import LightningSimpleCNNPredictor, SklearnClassifierPredictor
+from models import SimpleCNN, SklearnClassifierPredictor
 
 
 class ModelFactory:
@@ -13,7 +13,7 @@ class ModelFactory:
         model_name = model_cfg["name"]
 
         if model_name == "simple_cnn":
-            predictor = LightningSimpleCNNPredictor.from_config(model_cfg)
+            predictor = SimpleCNN.from_config(model_cfg)
             ModelFactory._maybe_prepare_simple_cnn(predictor, model_cfg)
             return predictor
 
@@ -24,7 +24,7 @@ class ModelFactory:
 
     @staticmethod
     def _maybe_prepare_simple_cnn(
-        predictor: LightningSimpleCNNPredictor,
+        predictor: SimpleCNN,
         model_cfg: dict[str, Any],
     ) -> None:
         checkpoint_path = model_cfg.get("checkpoint_path")
