@@ -1,15 +1,11 @@
 class DriftDetectorFactory:
     @staticmethod
     def create(config):
-        name = config["drift_detector"]["name"]
+        detector_cfg = config.get("drift_detector", {})
+        if not detector_cfg or not detector_cfg.get("enabled", True):
+            return None
 
-        # if name == "adwin":
-        #     return ADWINDetector(delta=config["drift_detector"]["delta"])
-        # if name == "ddm":
-        #     return DDMDetector()
-        # if name == "page_hinkley":
-        #     return PageHinkleyDetector(
-        #         delta=config["drift_detector"]["delta"],
-        #         threshold=config["drift_detector"]["threshold"]
-        #     )
-        raise ValueError(name)
+        name = detector_cfg.get("name")
+        if name in {None, "none"}:
+            return None
+        raise ValueError(f"Unsupported drift detector: {name!r}")

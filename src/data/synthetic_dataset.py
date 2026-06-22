@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
@@ -10,6 +9,8 @@ from data.stream_dataset import BaseStreamDataset
 
 class SyntheticDriftStreamDataset(BaseStreamDataset):
     """Synthetic binary stream with abrupt phase-wise concept drift."""
+
+    dataset_name = "synthetic_drift"
 
     def __init__(
         self,
@@ -43,6 +44,17 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
         self.phase_idx: np.ndarray
         self.drift_positions: list[int]
         self._build_stream()
+
+    @classmethod
+    def from_config(cls, dataset_cfg: dict[str, Any]) -> SyntheticDriftStreamDataset:
+        return cls(
+            seed=dataset_cfg.get("seed", 42),
+            n_per_phase=dataset_cfg.get("n_per_phase", 1_000),
+            n_phases=dataset_cfg.get("n_phases", 4),
+            n_features=dataset_cfg.get("n_features", 10),
+            noise_std=dataset_cfg.get("noise_std", 0.6),
+            drift_angle=dataset_cfg.get("drift_angle", float(np.pi / 2)),
+        )
 
     def _build_stream(self) -> None:
         rng = np.random.default_rng(self.seed)
@@ -98,41 +110,5 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
         perm = rng.permutation(len(y))
         return X[perm], y[perm]
 
-    def __len__(self) -> int:
-        return int(self.X_stream.shape[0])
-
-    def __iter__(self) -> Iterator[dict[str, Any]]:
-        drift_points = set(self.drift_positions)
-        for idx, (x_i, y_i, phase_i) in enumerate(
-            zip(self.X_stream, self.y_stream, self.phase_idx, strict=False)
-        ):
-            yield {
-                "x": x_i,
-                "y": int(y_i),
-                "metadata": {
-                    "index": idx,
-                    "phase": int(phase_i),
-                    "is_drift_point": idx in drift_points,
-                },
-            }
-
-    def query(self, batch: Any) -> int:
-        """Return the true label for a batch produced from this stream."""
-        if isinstance(batch, dict):
-            metadata = batch.get("metadata", {})
-            idx = metadata.get("index")
-            if idx is not None:
-                return int(self.y_stream[idx])
-            if batch.get("y") is not None:
-                return int(batch["y"])
-
-        metadata = getattr(batch, "metadata", None)
-        if isinstance(metadata, dict) and metadata.get("index") is not None:
-            return int(self.y_stream[metadata["index"]])
-
-        y_value = getattr(batch, "y", None)
-        if isinstance(y_value, (int, float, np.integer, np.floating, bool, np.bool_)):
-            return int(y_value)
-
-        raise ValueError("Batch does not contain index or label information for oracle query.")
-
+    def _metadata_for_index(self, idx: int) -> dict[str, Any]:
+        return {"phase": int(self.phase_idx[idx])}

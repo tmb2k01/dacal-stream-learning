@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Downloads and extracts the CIFAR-10-C dataset into playground/data/
+# Downloads and extracts the CIFAR-10-C dataset into data/
 
 set -euo pipefail
 
-DEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/playground/data"
+DEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data"
 ARCHIVE="$DEST_DIR/CIFAR-10-C.tar"
 URL="https://zenodo.org/records/2535967/files/CIFAR-10-C.tar?download=1"
 
