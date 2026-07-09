@@ -1,6 +1,6 @@
 [project]
 name = "dacal-stream-learning"
-version = "0.0.1"
+version = "0.0.2"
 description = "A stream learning library for concept drift detection and adaptive learning."
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -22,9 +22,11 @@ dependencies = [
     "ipython==9.11.0",
     "ipython-pygments-lexers==1.1.1",
     "jedi==0.19.2",
+    "joblib>=1.5.3",
     "jupyter-client==8.8.0",
     "jupyter-core==5.9.1",
     "kiwisolver==1.5.0",
+    "lightning>=2.5.0",
     "matplotlib==3.10.8",
     "matplotlib-inline==0.2.1",
     "nest-asyncio==1.6.0",
@@ -50,11 +52,14 @@ dependencies = [
     "pyzmq==27.1.0",
     "river==0.23.0",
     "ruff==0.15.7",
+    "scikit-learn>=1.8.0",
     "scipy==1.17.1",
     "setuptools==78.1.1",
     "six==1.17.0",
     "smmap==5.0.3",
     "stack-data==0.6.3",
+    "torch==2.11.0",
+    "torchvision==0.26.0",
     "tornado==6.5.5",
     "traitlets==5.14.3",
     "typing-extensions==4.15.0",
@@ -73,6 +78,7 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
+    "*.ipynb",
 ]
 
 [tool.ruff.lint]
@@ -97,6 +103,11 @@ fixable = ["ALL"]
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = [

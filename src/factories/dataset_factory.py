@@ -1,39 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
+from data import CIFAR10CStreamDataset, SyntheticDriftStreamDataset
 
 
 class DatasetFactory:
     @staticmethod
-    def create(config: dict[str, Any]):
-        config["dataset"]
-        task_type = config["task"]["type"]
+    def create(config: dict):
+        dataset_cfg: dict = config.get("dataset")
+        dataset_name = dataset_cfg.get("name")
 
-        # if task_type == "classification":
-        #     return ClassificationStreamDataset(
-        #         data_path=dataset_cfg["data_path"],
-        #         feature_columns=dataset_cfg.get("feature_columns"),
-        #         target_column=dataset_cfg["target_column"],
-        #         stream_order=dataset_cfg.get("stream_order", "sequential"),
-        #     )
+        if dataset_name == "synthetic_drift":
+            return SyntheticDriftStreamDataset.from_config(dataset_cfg)
 
-        # if task_type == "regression":
-        #     return RegressionStreamDataset(
-        #         data_path=dataset_cfg["data_path"],
-        #         feature_columns=dataset_cfg.get("feature_columns"),
-        #         target_column=dataset_cfg["target_column"],
-        #         stream_order=dataset_cfg.get("stream_order", "sequential"),
-        #     )
+        if dataset_name == "cifar10c_stream":
+            return CIFAR10CStreamDataset.from_config(dataset_cfg)
 
-        # if task_type == "timeseries":
-        #     return TimeSeriesStreamDataset(
-        #         data_path=dataset_cfg["data_path"],
-        #         target_column=dataset_cfg["target_column"],
-        #         lookback=dataset_cfg["lookback"],
-        #         horizon=dataset_cfg["horizon"],
-        #         time_column=dataset_cfg.get("time_column"),
-        #         feature_columns=dataset_cfg.get("feature_columns"),
-        #         stream_order=dataset_cfg.get("stream_order", "sequential"),
-        #     )
-
-        raise ValueError(f"Unsupported task type for dataset creation: {task_type}")
+        raise ValueError(f"Unsupported dataset configuration. dataset.name={dataset_name!r}")
