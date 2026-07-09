@@ -1,15 +1,27 @@
+from drift import RunningStatsBaselineDetector
+
+
 class DriftDetectorFactory:
     @staticmethod
     def create(config):
-        name = config["drift_detector"]["name"]
+        detector_cfg = config["drift_detector"]
+        name = detector_cfg["name"]
+
+        if name in {"baseline", "running_stats_baseline"}:
+            return RunningStatsBaselineDetector(
+                warmup_size=detector_cfg.get("warmup_size", 50),
+                threshold_std=detector_cfg.get("threshold_std", 3.0),
+                consecutive=detector_cfg.get("consecutive", 3),
+                min_std=detector_cfg.get("min_std", 1e-8),
+            )
 
         # if name == "adwin":
-        #     return ADWINDetector(delta=config["drift_detector"]["delta"])
+        #     return ADWINDetector(delta=detector_cfg["delta"])
         # if name == "ddm":
         #     return DDMDetector()
         # if name == "page_hinkley":
         #     return PageHinkleyDetector(
-        #         delta=config["drift_detector"]["delta"],
-        #         threshold=config["drift_detector"]["threshold"]
+        #         delta=detector_cfg["delta"],
+        #         threshold=detector_cfg["threshold"]
         #     )
         raise ValueError(name)
