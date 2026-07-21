@@ -4,8 +4,13 @@ from drift import RunningStatsBaselineDetector
 class DriftDetectorFactory:
     @staticmethod
     def create(config):
-        detector_cfg = config["drift_detector"]
-        name = detector_cfg["name"]
+        detector_cfg = config.get("drift_detector", {})
+        if not detector_cfg or not detector_cfg.get("enabled", True):
+            return None
+
+        name = detector_cfg.get("name")
+        if name in {None, "none"}:
+            return None
 
         if name in {"baseline", "running_stats_baseline"}:
             return RunningStatsBaselineDetector(
@@ -24,4 +29,4 @@ class DriftDetectorFactory:
         #         delta=detector_cfg["delta"],
         #         threshold=detector_cfg["threshold"]
         #     )
-        raise ValueError(name)
+        raise ValueError(f"Unsupported drift detector: {name!r}")

@@ -47,11 +47,8 @@ class RunningStatsBaselineDetector(BaseDriftDetector):
         drift = self._exceedance_streak >= self.consecutive
 
         if drift:
-            # Recalibrate after drift so the baseline remains useful beyond the first alert.
             self.reset()
-            self._baseline_window.append(value_f)
             return DriftEvent(drift=True, warning=False, score=score)
-
         return DriftEvent(drift=False, warning=exceeds, score=score)
 
     def reset(self) -> None:
