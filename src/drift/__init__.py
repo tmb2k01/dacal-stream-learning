@@ -5,6 +5,7 @@ from drift.river_detectors import (
     DDMDetector,
     PageHinkleyDetector,
 )
+from drift.detector_visualizer import DetectorVisualizer, replay_detector
 
 __all__ = [
     "BaseDriftDetector",
@@ -12,4 +13,6 @@ __all__ = [
     "ADWINDetector",
     "DDMDetector",
     "PageHinkleyDetector",
+    "DetectorVisualizer",
+    "replay_detector",
 ]
