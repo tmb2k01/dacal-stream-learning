@@ -25,6 +25,12 @@ conformal:
   name: classification
   enabled: true
   alpha: 0.1
+  # Sliding-window online recalibration.
+  # window_size: maximum number of online nonconformity scores to keep;
+  #   null = unbounded (append-only).
+  # min_online_samples: online scores required before q_hat is adapted.
+  window_size: 500
+  min_online_samples: 50
 
 dataset:
   name: cifar10c_stream

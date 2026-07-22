@@ -57,6 +57,8 @@ def build_conformal_predictor(config: dict[str, Any], predictor: Any, dataset: A
     calibrator = ClassificationConformalPredictor(
         alpha=conformal_cfg.get("alpha", 0.1),
         num_classes=_num_classes(model_cfg, dataset),
+        window_size=conformal_cfg.get("window_size", None),
+        min_online_samples=conformal_cfg.get("min_online_samples", 1),
     )
 
     if hasattr(predictor, "clean_cifar10_calibration_loader"):
