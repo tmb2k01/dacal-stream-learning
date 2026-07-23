@@ -1,4 +1,9 @@
-from drift import RunningStatsBaselineDetector
+from drift import (
+    ADWINDetector,
+    DDMDetector,
+    PageHinkleyDetector,
+    RunningStatsBaselineDetector,
+)
 
 
 class DriftDetectorFactory:
@@ -20,13 +25,23 @@ class DriftDetectorFactory:
                 min_std=detector_cfg.get("min_std", 1e-8),
             )
 
-        # if name == "adwin":
-        #     return ADWINDetector(delta=detector_cfg["delta"])
-        # if name == "ddm":
-        #     return DDMDetector()
-        # if name == "page_hinkley":
-        #     return PageHinkleyDetector(
-        #         delta=detector_cfg["delta"],
-        #         threshold=detector_cfg["threshold"]
-        #     )
+        if name == "adwin":
+            return ADWINDetector(delta=detector_cfg.get("delta", 0.002))
+
+        if name == "ddm":
+            return DDMDetector(
+                warm_start=detector_cfg.get("warm_start", 30),
+                warning_threshold=detector_cfg.get("warning_threshold", 2.0),
+                drift_threshold=detector_cfg.get("drift_threshold", 3.0),
+            )
+
+        if name == "page_hinkley":
+            return PageHinkleyDetector(
+                delta=detector_cfg.get("delta", 0.005),
+                threshold=detector_cfg.get("threshold", 50.0),
+                min_instances=detector_cfg.get("min_instances", 30),
+                alpha=detector_cfg.get("alpha", 0.9999),
+                mode=detector_cfg.get("mode", "both"),
+            )
+
         raise ValueError(f"Unsupported drift detector: {name!r}")
