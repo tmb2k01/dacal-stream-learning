@@ -25,9 +25,10 @@ class ADWINDetector(BaseDriftDetector):
     """
 
     def __init__(self, delta: float = 0.002) -> None:
-        self.delta = delta
-        self._inner = ADWIN(delta=delta)
-
+        if not (0.0 < float(delta) < 1.0):
+            raise ValueError("delta must be in (0, 1)")
+        self.delta = float(delta)
+        self._inner = ADWIN(delta=self.delta)
     def update(self, value: float) -> DriftEvent:
         self._inner.update(float(value))
         drift = bool(self._inner.drift_detected)
@@ -65,13 +66,20 @@ class DDMDetector(BaseDriftDetector):
         warning_threshold: float = 2.0,
         drift_threshold: float = 3.0,
     ) -> None:
-        self.warm_start = warm_start
-        self.warning_threshold = warning_threshold
-        self.drift_threshold = drift_threshold
+        if warm_start < 1:
+            raise ValueError("warm_start must be >= 1")
+        if warning_threshold <= 0:
+            raise ValueError("warning_threshold must be > 0")
+        if drift_threshold <= warning_threshold:
+            raise ValueError("drift_threshold must be > warning_threshold")
+
+        self.warm_start = int(warm_start)
+        self.warning_threshold = float(warning_threshold)
+        self.drift_threshold = float(drift_threshold)
         self._inner = DDM(
-            warm_start=warm_start,
-            warning_threshold=warning_threshold,
-            drift_threshold=drift_threshold,
+            warm_start=self.warm_start,
+            warning_threshold=self.warning_threshold,
+            drift_threshold=self.drift_threshold,
         )
 
     def update(self, value: float) -> DriftEvent:
@@ -122,17 +130,28 @@ class PageHinkleyDetector(BaseDriftDetector):
         alpha: float = 0.9999,
         mode: str = "both",
     ) -> None:
-        self.delta = delta
-        self.threshold = threshold
-        self.min_instances = min_instances
-        self.alpha = alpha
+        if delta < 0:
+            raise ValueError("delta must be >= 0")
+        if threshold <= 0:
+            raise ValueError("threshold must be > 0")
+        if min_instances < 1:
+            raise ValueError("min_instances must be >= 1")
+        if not (0.0 < alpha <= 1.0):
+            raise ValueError("alpha must be in (0, 1]")
+        if mode not in {"up", "down", "both"}:
+            raise ValueError("mode must be one of {'up', 'down', 'both'}")
+
+        self.delta = float(delta)
+        self.threshold = float(threshold)
+        self.min_instances = int(min_instances)
+        self.alpha = float(alpha)
         self.mode = mode
         self._inner = PageHinkley(
-            delta=delta,
-            threshold=threshold,
-            min_instances=min_instances,
-            alpha=alpha,
-            mode=mode,
+            delta=self.delta,
+            threshold=self.threshold,
+            min_instances=self.min_instances,
+            alpha=self.alpha,
+            mode=self.mode,
         )
 
     def update(self, value: float) -> DriftEvent:
