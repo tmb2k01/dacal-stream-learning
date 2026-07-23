@@ -5,12 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-# Add src to path so the module can be imported without installing the package.
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
 from conformal.classification_conformal import ClassificationConformalPredictor
 
 

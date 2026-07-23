@@ -39,9 +39,8 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
         self,
         alpha: float = 0.1,
         num_classes: int = 10,
-        window_size: int | None = None,
+        window_size: int | None = 500,
         min_online_samples: int = 1,
-    ):
         if not 0 < alpha < 1:
             raise ValueError("alpha must be between 0 and 1")
         if min_online_samples < 1:
@@ -132,9 +131,12 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
             return
 
         probs = self._to_numpy(probs_raw)
-        if probs.ndim > 1:
-            probs = probs.reshape(-1)
-
+        if probs.ndim == 2:
+            if probs.shape[0] != 1:
+                return
+            probs = probs[0]
+        elif probs.ndim != 1:
+            return
         y_idx = int(y_true)
         if y_idx < 0 or y_idx >= len(probs):
             return
