@@ -7,7 +7,6 @@ import pytest
 
 from conformal.classification_conformal import ClassificationConformalPredictor
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -113,7 +112,7 @@ class TestOnlineUpdate:
     def test_online_scores_accumulate_in_buffer(self):
         cp = _make_predictor(min_online_samples=1)
         assert len(cp._online_scores) == 0
-        for i in range(5):
+        for _i in range(5):
             cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)
         assert len(cp._online_scores) == 5
 

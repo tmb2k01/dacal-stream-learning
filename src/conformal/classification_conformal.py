@@ -41,6 +41,7 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
         num_classes: int = 10,
         window_size: int | None = 500,
         min_online_samples: int = 1,
+    ) -> None:
         if not 0 < alpha < 1:
             raise ValueError("alpha must be between 0 and 1")
         if min_online_samples < 1:
