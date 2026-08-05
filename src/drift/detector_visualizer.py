@@ -208,10 +208,14 @@ class DetectorVisualizer:
         """Panel 1 – detector score over time with threshold reference."""
         ax.plot(steps, scores, color="#4C72B0", linewidth=1.0, label="Score", zorder=2)
 
-        # Shade warmup region (leading NaNs / zero scores before baseline locked)
-        first_real = int(np.argmax(~np.isnan(scores) & (scores > 0)))
-        if first_real > 0:
-            ax.axvspan(steps[0], steps[first_real], color="#DDDDDD", alpha=0.5, label="Warmup")
+        # Shade warmup region when detector provides a warmup_size; otherwise fall back to leading NaNs.
+        warmup_size = getattr(self.detector, "warmup_size", None) if self.detector is not None else None
+        if isinstance(warmup_size, int) and 0 < warmup_size <= len(steps):
+            ax.axvspan(steps[0], steps[warmup_size - 1], color="#DDDDDD", alpha=0.5, label="Warmup")
+        else:
+            first_finite = np.where(~np.isnan(scores))[0]
+            if first_finite.size and int(first_finite[0]) > 0:
+                ax.axvspan(steps[0], steps[int(first_finite[0])], color="#DDDDDD", alpha=0.5, label="Warmup")
 
         # Threshold line from detector attributes
         threshold = self._read_threshold()
