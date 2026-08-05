@@ -31,7 +31,6 @@ import numpy as np
 
 from drift.base import BaseDriftDetector, DriftEvent
 
-
 # ---------------------------------------------------------------------------
 # Standalone helper
 # ---------------------------------------------------------------------------
