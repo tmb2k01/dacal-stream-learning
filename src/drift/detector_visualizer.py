@@ -1,25 +1,4 @@
-"""detector_visualizer.py – Visualization utilities for drift detectors.
-
-Usage (standalone replay)
--------------------------
->>> from drift import RunningStatsBaselineDetector
->>> from drift.detector_visualizer import DetectorVisualizer, replay_detector
->>>
->>> detector = RunningStatsBaselineDetector(warmup_size=30, threshold_std=2.5)
->>> values = [0.1] * 30 + [0.8] * 20 + [0.1] * 20  # sudden spike
->>> events = replay_detector(detector, values)
->>> viz = DetectorVisualizer(detector)
->>> fig = viz.plot_events(events)
->>> fig.savefig("detector_diagnostics.png", dpi=150, bbox_inches="tight")
-
-Usage (engine records)
-----------------------
->>> from drift.detector_visualizer import DetectorVisualizer
->>> # result = engine.run(stream)
->>> viz = DetectorVisualizer(detector)
->>> fig = viz.plot(result.records)
->>> fig.show()
-"""
+"""detector_visualizer.py – Visualization utilities for drift detectors"""
 
 from __future__ import annotations
 
