@@ -16,3 +16,11 @@ __all__ = [
     "DetectorVisualizer",
     "replay_detector",
 ]
+
+
+def __getattr__(name: str):
+    if name in {"DetectorVisualizer", "replay_detector"}:
+        from drift.detector_visualizer import DetectorVisualizer, replay_detector
+
+        return {"DetectorVisualizer": DetectorVisualizer, "replay_detector": replay_detector}[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

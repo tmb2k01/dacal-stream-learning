@@ -73,6 +73,8 @@ class DetectorVisualizer:
         window: int = 50,
         figsize: tuple[float, float] = (14, 10),
     ) -> None:
+        if window < 1:
+            raise ValueError("window must be >= 1")
         self.detector = detector
         self.window = window
         self.figsize = figsize
@@ -137,6 +139,8 @@ class DetectorVisualizer:
         """
         if steps is None:
             steps = list(range(len(events)))
+        elif len(steps) != len(events):
+            raise ValueError("steps and events must have the same length")
         return self._build_figure(
             steps=steps,
             events=events,
@@ -374,7 +378,6 @@ if __name__ == "__main__":
     fig.savefig("detector_diagnostics_demo.png", dpi=150, bbox_inches="tight")
     print("Saved → detector_diagnostics_demo.png")
     plt.show()
-
 
 
 
