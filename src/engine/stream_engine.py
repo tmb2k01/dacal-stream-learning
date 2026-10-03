@@ -112,10 +112,12 @@ class StreamSimulationEngine:
                     }
                 )
 
-        # 5. Optional drift detection: by default detectors consume prediction error.
+        # 5. Optional drift detection: active-learning detectors only see queried labels.
         point_prediction = prediction.get("point_prediction")
         correct = self._is_correct(point_prediction, y_true)
-        drift_event = self._update_drift_detector(correct)
+        detector_label = y_observed if self.active_policy is not None else y_true
+        detector_correct = self._is_correct(point_prediction, detector_label)
+        drift_event = self._update_drift_detector(detector_correct)
         if drift_event is not None and drift_event.drift:
             self._handle_drift()
 
@@ -190,8 +192,6 @@ class StreamSimulationEngine:
         if self.calibrator is not None:
             self.calibrator.reset()
         self.predictor.reset_adaptation_state()
-        if self.drift_detector is not None:
-            self.drift_detector.reset()
 
     @staticmethod
     def _first_value(value: Any) -> Any:

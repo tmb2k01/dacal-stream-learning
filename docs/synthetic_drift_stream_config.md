@@ -76,6 +76,13 @@ Iteration yields dictionaries:
 `is_drift_point` is `true` on the first sample of every phase after the first.
 `drift_positions` contains those stream indices.
 
-The first generated phase is also exposed as `X_train` and `y_train`, which can
-be used for initial model fitting or calibration before replaying the full
-stream.
+`X_train` and `y_train` are an independently drawn sample from the phase-0
+distribution for initial model fitting or calibration. They are disjoint from
+the full stream, including its first phase, so evaluation does not reuse
+training observations. Drift positions still refer to the full stream.
+
+When an active query policy is enabled, the drift detector receives prediction
+errors only for queried labels. Ground-truth labels remain available for
+offline metrics. Without an active policy, the detector receives every stream
+label's prediction error. Each detector resets itself after reporting drift;
+the simulation engine resets only the model adaptation state and calibrator.
