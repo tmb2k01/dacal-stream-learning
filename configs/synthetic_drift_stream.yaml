@@ -8,6 +8,14 @@ model:
 conformal:
   enabled: false
 
+drift_detector:
+  enabled: true
+  name: baseline
+  warmup_size: 50
+  threshold_std: 3.0
+  consecutive: 3
+  visualizer: true
+
 dataset:
   name: synthetic_drift
   seed: 42

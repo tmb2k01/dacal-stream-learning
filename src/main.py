@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from engine import build_simulation_from_yaml
+from engine import build_simulation, load_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -14,7 +14,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    engine, dataset = build_simulation_from_yaml(args.config)
+    config = load_config(args.config)
+    engine, dataset = build_simulation(config)
+    visualizer_enabled = config.get("drift_detector", {}).get("visualizer", False)
+    if visualizer_enabled and engine.drift_detector is None:
+        raise ValueError("drift_detector.visualizer requires an enabled drift detector")
+
     result = engine.run(dataset, max_steps=args.max_steps)
     metrics = result.state.metrics
     print("Simulation metrics")
@@ -26,6 +31,14 @@ def main() -> None:
         print(f"Coverage gaps by classes: {metrics['coverage_gap_by_class']}")
     else:
         print(f"Metrics: {metrics}")
+
+    if visualizer_enabled:
+        import matplotlib.pyplot as plt
+
+        from drift import DetectorVisualizer
+
+        DetectorVisualizer(detector=engine.drift_detector).plot(result.records)
+        plt.show()
 
 
 if __name__ == "__main__":

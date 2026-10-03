@@ -274,7 +274,8 @@ class DetectorVisualizer:
         ax.set_ylim(-0.1, 1.5)
         ax.set_yticks([])
         ax.set_title("Warning & Drift Events", fontsize=11)
-        ax.legend(fontsize=8, loc="upper left", framealpha=0.7)
+        if warn_steps.size or drift_steps.size:
+            ax.legend(fontsize=8, loc="upper left", framealpha=0.7)
         ax.grid(True, axis="x", linestyle=":", alpha=0.4)
 
     def _panel_cumulative(
@@ -357,7 +358,6 @@ if __name__ == "__main__":
     fig.savefig("detector_diagnostics_demo.png", dpi=150, bbox_inches="tight")
     print("Saved → detector_diagnostics_demo.png")
     plt.show()
-
 
 
 
