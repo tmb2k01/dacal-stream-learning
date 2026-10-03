@@ -58,6 +58,13 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
 
     def _build_stream(self) -> None:
         rng = np.random.default_rng(self.seed)
+        self.X_train, self.y_train = self._make_phase(
+            rng=rng,
+            n_per_class=self.n_per_phase // 2,
+            n_features=self.n_features,
+            noise_std=self.noise_std,
+            rotation=0.0,
+        )
         phases_X: list[np.ndarray] = []
         phases_y: list[np.ndarray] = []
 
@@ -73,8 +80,6 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
             phases_X.append(X_phase)
             phases_y.append(y_phase)
 
-        self.X_train = phases_X[0]
-        self.y_train = phases_y[0]
         self.X_stream = np.vstack(phases_X)
         self.y_stream = np.hstack(phases_y)
         self.phase_idx = np.repeat(np.arange(self.n_phases), self.n_per_phase)
