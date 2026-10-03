@@ -109,6 +109,10 @@ dev = [
     "pytest>=9.0.3",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
 [tool.ruff.lint.isort]
 known-first-party = [
     "active_learning",

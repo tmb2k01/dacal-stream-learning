@@ -29,8 +29,12 @@ conformal:
   # window_size: maximum number of online nonconformity scores to keep;
   #   null = unbounded (append-only).
   # min_online_samples: online scores required before q_hat is adapted.
+  # min_samples_per_class: delta, minimum samples kept per class in the window;
+  #   eviction removes the oldest sample of a class holding more than delta.
+  #   0 = plain FIFO. Must satisfy delta * num_classes <= window_size.
   window_size: 500
   min_online_samples: 50
+  min_samples_per_class: 10
 
 dataset:
   name: cifar10c_stream

@@ -151,6 +151,42 @@ class TestSlidingWindow:
             cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)
         assert len(cp._online_scores) == 1000
 
+    def test_min_samples_per_class_protects_rare_class(self):
+        cp = _make_predictor(window_size=10, min_online_samples=1, min_samples_per_class=2)
+        # Two old samples of rare class 0, then a flood of class 2.
+        for _ in range(2):
+            cp.update(_prediction([0.5, 0.25, 0.25]), y_true=0)
+        for _ in range(50):
+            cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)
+        assert len(cp._online_scores) == 10
+        assert list(cp._online_labels).count(0) == 2
+        assert list(cp._online_labels).count(2) == 8
+
+    def test_min_samples_per_class_evicts_oldest_excess_sample(self):
+        cp = _make_predictor(window_size=4, min_online_samples=1, min_samples_per_class=1)
+        cp.update(_prediction([0.9, 0.05, 0.05]), y_true=0)  # score 0.1
+        cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)    # score 0.2
+        cp.update(_prediction([0.1, 0.1, 0.7]), y_true=2)    # score 0.3
+        cp.update(_prediction([0.1, 0.1, 0.6]), y_true=2)    # score 0.4
+        cp.update(_prediction([0.1, 0.1, 0.5]), y_true=2)    # score 0.5
+        assert list(cp._online_labels) == [0, 2, 2, 2]
+        assert list(cp._online_scores) == pytest.approx([0.1, 0.3, 0.4, 0.5])
+
+    def test_zero_min_samples_per_class_is_fifo(self):
+        cp = _make_predictor(window_size=3, min_online_samples=1, min_samples_per_class=0)
+        cp.update(_prediction([0.5, 0.25, 0.25]), y_true=0)
+        for _ in range(3):
+            cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)
+        assert list(cp._online_labels) == [2, 2, 2]
+
+    def test_reset_clears_class_buffers(self):
+        cp = _make_predictor(window_size=5, min_online_samples=1, min_samples_per_class=1)
+        for _ in range(5):
+            cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)
+        cp.reset()
+        assert len(cp._online_labels) == 0
+        assert cp._class_counts == {}
+
 
 # ---------------------------------------------------------------------------
 # reset() restores initial q_hat
@@ -244,4 +280,14 @@ class TestConstructorValidation:
     def test_none_window_size_allowed(self):
         cp = ClassificationConformalPredictor(window_size=None)
         assert cp.window_size is None
+
+    def test_negative_min_samples_per_class_raises(self):
+        with pytest.raises(ValueError, match="min_samples_per_class"):
+            ClassificationConformalPredictor(min_samples_per_class=-1)
+
+    def test_min_samples_per_class_exceeding_window_raises(self):
+        with pytest.raises(ValueError, match="min_samples_per_class"):
+            ClassificationConformalPredictor(
+                num_classes=10, window_size=50, min_samples_per_class=6
+            )
 

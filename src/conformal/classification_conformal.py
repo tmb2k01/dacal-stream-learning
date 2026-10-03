@@ -33,6 +33,12 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
         Minimum number of online scores required before ``q_hat`` is updated
         from the sliding window.  Until this threshold is reached the
         predictor uses the ``q_hat`` set during initial calibration.
+    min_samples_per_class:
+        Minimum number of samples retained per class in the sliding
+        window.  When the window is full, the oldest sample whose class holds
+        more than ``min_samples_per_class`` entries is evicted instead of the
+        oldest sample overall, so rare classes are not flushed out.  ``0``
+        (default) gives plain FIFO eviction.
     """
 
     def __init__(
@@ -41,6 +47,7 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
         num_classes: int = 10,
         window_size: int | None = 500,
         min_online_samples: int = 1,
+        min_samples_per_class: int = 0,
     ) -> None:
         if not 0 < alpha < 1:
             raise ValueError("alpha must be between 0 and 1")
@@ -48,17 +55,27 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
             raise ValueError("min_online_samples must be >= 1")
         if window_size is not None and window_size < 1:
             raise ValueError("window_size must be >= 1 or None")
+        if min_samples_per_class < 0:
+            raise ValueError("min_samples_per_class must be >= 0")
+        if window_size is not None and min_samples_per_class * num_classes > window_size:
+            raise ValueError(
+                "min_samples_per_class * num_classes must not exceed window_size"
+            )
 
         self.alpha = alpha
         self.num_classes = num_classes
         self.window_size = window_size
         self.min_online_samples = min_online_samples
+        self.min_samples_per_class = min_samples_per_class
 
         self.q_hat: float | None = None
         # Scores from the static calibration set (used as fallback after reset).
         self.calibration_scores: np.ndarray | None = None
-        # Rolling buffer of nonconformity scores from online labeled samples.
-        self._online_scores: deque[float] = deque(maxlen=window_size)
+        # Rolling buffer of nonconformity scores from online labeled samples,
+        # with the parallel buffer of their class labels (oldest first).
+        self._online_scores: deque[float] = deque()
+        self._online_labels: deque[int] = deque()
+        self._class_counts: dict[int, int] = {}
 
     # ------------------------------------------------------------------
     # Initial (batch) calibration
@@ -115,7 +132,8 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
     def update(self, prediction: dict, y_true) -> None:
         """Incorporate one newly labeled stream sample and adapt ``q_hat``.
 
-        The nonconformity score ``1 - p_y`` is appended to the sliding window.
+        The nonconformity score ``1 - p_y`` is appended to the sliding window
+        (class-aware eviction keeps at least ``min_samples_per_class`` per class).
         ``q_hat`` is updated once the window holds at least
         ``min_online_samples`` entries.
 
@@ -143,7 +161,7 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
             return
 
         score = float(1.0 - probs[y_idx])
-        self._online_scores.append(score)
+        self._append_online(score, y_idx)
 
         if len(self._online_scores) >= self.min_online_samples:
             self.q_hat = self._compute_q_hat(
@@ -173,6 +191,8 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
         the reset.
         """
         self._online_scores.clear()
+        self._online_labels.clear()
+        self._class_counts.clear()
         if self.calibration_scores is not None:
             self.q_hat = self._compute_q_hat(self.calibration_scores, self.alpha)
         else:
@@ -181,6 +201,33 @@ class ClassificationConformalPredictor(BaseConformalCalibrator):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _append_online(self, score: float, label: int) -> None:
+        """Add a labeled score, evicting class-aware when the window is full."""
+        if self.window_size is not None and len(self._online_scores) >= self.window_size:
+            self._evict_one()
+        self._online_scores.append(score)
+        self._online_labels.append(label)
+        self._class_counts[label] = self._class_counts.get(label, 0) + 1
+
+    def _evict_one(self) -> None:
+        """Evict the oldest sample whose class exceeds ``min_samples_per_class``.
+
+        Falls back to the oldest sample overall if every class is at or below
+        the per-class minimum.
+        """
+        evict_idx = 0
+        if self.min_samples_per_class > 0:
+            for idx, label in enumerate(self._online_labels):
+                if self._class_counts[label] > self.min_samples_per_class:
+                    evict_idx = idx
+                    break
+        label = self._online_labels[evict_idx]
+        del self._online_scores[evict_idx]
+        del self._online_labels[evict_idx]
+        self._class_counts[label] -= 1
+        if self._class_counts[label] == 0:
+            del self._class_counts[label]
 
     @staticmethod
     def _compute_q_hat(scores: np.ndarray, alpha: float) -> float:
