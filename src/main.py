@@ -23,9 +23,12 @@ def main() -> None:
     result = engine.run(dataset, max_steps=args.max_steps)
     metrics = result.state.metrics
     print("Simulation metrics")
-    print(f"Steps: {result.state.step}")
+    if "accuracy" in metrics:
+        print(f"Accuracy: {metrics['accuracy']:.4f} ({metrics.get('correct', 0)}/{metrics.get('seen', 0)})")
+    if "coverage" in metrics:
+        print(f"Coverage: {metrics['coverage']:.4f} ({metrics.get('total_covered', 0)}/{metrics.get('seen', 0)})")
     if "efficiency" in metrics:
-        print(f"Efficiency: {metrics['efficiency']:.6f}")
+        print(f"Efficiency (Avg set size): {metrics['efficiency']:.6f}")
         print(f"Informativeness: {metrics['informativeness']:.6f}")
         print(f"Coverage by classes: {metrics['coverage_by_class']}")
         print(f"Coverage gaps by classes: {metrics['coverage_gap_by_class']}")

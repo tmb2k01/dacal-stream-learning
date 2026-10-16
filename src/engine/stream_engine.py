@@ -159,6 +159,8 @@ class StreamSimulationEngine:
         num_classes = int(prediction_set.shape[1])
 
         metrics["total_set_size"] = metrics.get("total_set_size", 0) + size
+        metrics["total_covered"] = metrics.get("total_covered", 0) + int(covered)
+        metrics["coverage"] = metrics["total_covered"] / metrics["seen"]
         metrics["efficiency"] = metrics["total_set_size"] / metrics["seen"]
         metrics["informativeness"] = 1.0 - (metrics["efficiency"] / num_classes)
 
