@@ -1,0 +1,154 @@
+\hypersetup{pageanchor=false}
+\pagenumbering{arabic}
+\chapter{Drift detection methods}
+\label{chap:drift-detectors}
+
+\section{Problem setting and monitored signal}
+\label{sec:detector-setting}
+
+Consider a labeled stream $\{(x_t,y_t)\}_{t\geq1}$ and an online predictor that emits a point prediction $\hat y_t$. The current detector integration forms the binary error sequence
+\begin{equation}
+ e_t = \mathbb{I}\{\hat y_t \neq y_t\}\in\{0,1\},
+ \label{eq:error-signal}
+\end{equation}
+where $\mathbb{I}\{\cdot\}$ is the indicator function. Each configured detector receives $e_t$ after prediction and after any optional model update for the item. Thus, detector alarms should be interpreted as evidence of a change in predictive error, not directly as evidence of covariate shift, label shift, or degradation of conformal coverage. The generic detectors can accept real-valued values, but the engine currently supplies only the binary sequence in Equation~\eqref{eq:error-signal}.
+
+Every detector implements an \texttt{update(value)} operation and returns an event
+\begin{equation}
+ \mathcal{E}_t=(d_t,w_t,s_t),
+\end{equation}
+where $d_t$ is a drift flag, $w_t$ is a warning flag, and $s_t$ is a detector-specific diagnostic score. The score is included for logging and visualization; it is \emph{not} a common calibrated statistic and must not be compared numerically across detectors. If a point prediction or the ground-truth label is absent, no detector update is performed for that stream item.
+
+\section{Fixed-baseline running-statistics detector}
+\label{sec:baseline-detector}
+
+The baseline detector provides a transparent reference method. It first collects a warm-up sample of $n_0$ errors, then fixes the baseline mean and population standard deviation as
+\begin{equation}
+ \mu_0=\frac{1}{n_0}\sum_{i=1}^{n_0} e_i,
+ \qquad
+ \sigma_0=\sqrt{\frac{1}{n_0}\sum_{i=1}^{n_0}(e_i-\mu_0)^2}.
+ \label{eq:baseline-statistics}
+\end{equation}
+No warning or drift event is emitted while the warm-up buffer is being filled. After warm-up, the detector evaluates the standardized absolute deviation
+\begin{equation}
+ z_t=\frac{|e_t-\mu_0|}{\max(\sigma_0,\epsilon)},
+ \label{eq:baseline-zscore}
+\end{equation}
+where $\epsilon>0$ guards against a zero-variance baseline. An observation is an exceedance when $z_t\geq\tau$. Consecutive exceedances are counted; a non-exceedance resets the count to zero. A warning is emitted for an exceedance before the required count is reached, and drift is emitted on the $c$-th consecutive exceedance. The reported score is $z_t$.
+
+This method is intentionally a \emph{fixed} baseline: it does not update $\mu_0$ or $\sigma_0$ after warm-up. It is consequently easy to interpret but can be sensitive to an unrepresentative initial period and to the discreteness of binary errors. Following an alarm, its baseline and exceedance count are cleared, so a new warm-up period is required.
+
+\begin{table}[htbp]
+\centering
+\caption{Parameters of the fixed-baseline detector.}
+\label{tab:baseline-parameters}
+\begin{tabular}{@{}lllp{6.0cm}@{}}
+\toprule
+Parameter & Default & Constraint & Meaning \\
+\midrule
+\texttt{warmup\_size} & 50 & $\geq 2$ & Number of initial observations used to estimate $\mu_0$ and $\sigma_0$. \\
+\texttt{threshold\_std} & 3.0 & $>0$ & Standardized-deviation threshold $\tau$. \\
+\texttt{consecutive} & 3 & $\geq1$ & Required consecutive exceedances $c$. \\
+\texttt{min\_std} & $10^{-8}$ & $>0$ & Numerical floor $\epsilon$ in Equation~\eqref{eq:baseline-zscore}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Adaptive Windowing (ADWIN)}
+\label{sec:adwin}
+
+ADWIN is an adaptive-window change detector for the mean of a real-valued stream. Its window length changes online: when two subwindows have means that differ by more than permitted by its statistical bound, the older portion is discarded and a drift event is raised~\cite{bifet2007adwin}. In this project, the River implementation is wrapped with a single confidence parameter $\delta$. Smaller values of $\delta$ make the detector less sensitive. Although ADWIN is general-purpose, its input here is the binary error sequence, so mean changes correspond to changes in error rate.
+
+The wrapper emits no warnings. Its event score is the current ADWIN window variance when the window is nonempty, and zero otherwise. This score is a diagnostic output, not ADWIN's decision statistic. After a detected change, the wrapper constructs a fresh ADWIN instance using the same $\delta$; the engine subsequently also invokes the detector reset as part of global drift handling.
+
+\begin{table}[htbp]
+\centering
+\caption{ADWIN parameter exposed by the framework.}
+\label{tab:adwin-parameters}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Parameter & Default & Constraint & Meaning \\
+\midrule
+\texttt{delta} & 0.002 & $0<\delta<1$ & Confidence/sensitivity parameter of River ADWIN. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Drift Detection Method (DDM)}
+\label{sec:ddm}
+
+DDM monitors the error probability of a classifier and signals changes through deviations of the observed error rate from its historically favorable level~\cite{gama2004ddm}. It is therefore naturally aligned with Equation~\eqref{eq:error-signal}. The wrapper converts arbitrary scalar inputs to a Boolean value using the threshold $\mathbb{I}\{v\geq0.5\}$; on the engine error stream this conversion preserves zero for correct predictions and one for errors.
+
+The River DDM implementation has a warm-start period before detection begins. It can emit both a warning and a drift state. The wrapper propagates both flags, while setting its score to the input error value (0 or 1), rather than exposing DDM's internal statistic. A drift event resets the DDM instance, whereas a warning does not. Therefore, a warning is informative for analysis but does not itself reset the detector or trigger adaptation.
+
+\begin{table}[htbp]
+\centering
+\caption{DDM parameters exposed by the framework.}
+\label{tab:ddm-parameters}
+\begin{tabular}{@{}lllp{5.7cm}@{}}
+\toprule
+Parameter & Default & Constraint & Meaning \\
+\midrule
+\texttt{warm\_start} & 30 & $\geq1$ & Number of observations collected before DDM detection. \\
+\texttt{warning\_threshold} & 2.0 & $>0$ & Warning threshold, in standard-deviation units. \\
+\texttt{drift\_threshold} & 3.0 & $>$ \texttt{warning\_threshold} & Drift threshold, in standard-deviation units. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Page--Hinkley detector}
+\label{sec:page-hinkley}
+
+The Page--Hinkley test is a sequential procedure for identifying persistent changes in a stream mean~\cite{page1954continuous}. The framework uses River's Page--Hinkley implementation. On the binary error stream, it tests for persistent changes in the mean error rate. The implementation supports upward, downward, or bidirectional monitoring. Bidirectional monitoring is the default, which is appropriate when both deterioration and recovery of predictive performance are scientifically relevant.
+
+The wrapper emits a drift flag only; it has no warning state. Its exposed score is the raw input value $e_t$, not the internal Page--Hinkley cumulative statistic. A detected drift recreates the wrapped detector with the same parameters.
+
+\begin{table}[htbp]
+\centering
+\caption{Page--Hinkley parameters exposed by the framework.}
+\label{tab:ph-parameters}
+\begin{tabular}{@{}lllp{5.7cm}@{}}
+\toprule
+Parameter & Default & Constraint & Meaning \\
+\midrule
+\texttt{delta} & 0.005 & $\geq0$ & Minimum change amplitude. \\
+\texttt{threshold} & 50.0 & $>0$ & Decision threshold for the cumulative test. \\
+\texttt{min\_instances} & 30 & $\geq1$ & Minimum observations before an alarm can be raised. \\
+\texttt{alpha} & 0.9999 & $0<\alpha\leq1$ & Exponential forgetting factor. \\
+\texttt{mode} & \texttt{both} & \texttt{up}, \texttt{down}, or \texttt{both} & Direction of monitored mean change. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Alarm handling and experimental implications}
+\label{sec:alarm-handling}
+
+When $d_t=1$, the stream engine sets a persistent drift-mode flag, resets the conformal calibrator when present, calls the predictor's adaptation-state reset operation, and resets the configured detector. Warnings have no direct adaptation effect. Since each detector wrapper also resets itself on its own drift event, the subsequent engine reset is redundant but leaves the post-alarm state unambiguous. The drift-mode flag is not reverted by the detector code; experiments that use it in an active-learning policy should specify any additional policy-level recovery rule.
+
+A central limitation is label availability. The detector signal uses the stream item's ground-truth label whenever it is present, irrespective of whether the active-learning policy queried that label. This is appropriate for fully labeled simulation and retrospective benchmarking, but it does not represent a deployment setting in which labels are delayed, expensive, or unavailable. For a label-budgeted study, the detector input should instead be restricted to queried labels or replaced by an unlabeled signal (for example, confidence, nonconformity, or feature-distribution statistics). Detection delay and false-alarm measurements must be reported under the same label protocol used to generate the detector signal.
+
+The fixed-baseline detector is the enabled detector in the supplied synthetic-stream configuration, with the defaults in Table~\ref{tab:baseline-parameters}. ADWIN, DDM, and Page--Hinkley are selectable through the detector factory and use the defaults documented above unless explicitly configured. All River-backed results should record River version 0.23.0, because detector behavior is delegated to that library implementation.
+
+\section{Configuration and reproducibility}
+\label{sec:detector-reproducibility}
+
+A detector is enabled through a \texttt{drift\_detector} configuration block. The supported names are \texttt{baseline} (or \texttt{running\_stats\_baseline}), \texttt{adwin}, \texttt{ddm}, and \texttt{page\_hinkley}. Missing, disabled, or \texttt{none} detector configurations disable drift detection. A reproducible experiment should record the full detector block, model-update order, label protocol, random seed, and alarm evaluation criterion. In particular, diagnostic scores should be visualized only within a detector family: the baseline score is a z-score, ADWIN reports a window variance, and DDM/Page--Hinkley report the observed binary input.
+
+\begin{thebibliography}{9}
+
+\bibitem{bifet2007adwin}
+Albert Bifet and Ricard Gavald\`a.
+Learning from Time-Changing Data with Adaptive Windowing.
+In \emph{Proceedings of the 2007 SIAM International Conference on Data Mining}, pages 443--448, 2007.
+
+\bibitem{gama2004ddm}
+Jo\~ao Gama, Pedro Medas, Gladys Castillo, and Pedro Rodrigues.
+Learning with Drift Detection.
+In \emph{Advances in Artificial Intelligence -- SBIA 2004}, pages 286--295, 2004.
+
+\bibitem{page1954continuous}
+E. S. Page.
+Continuous Inspection Schemes.
+\emph{Biometrika}, 41(1/2):100--115, 1954.
+
+\end{thebibliography}
