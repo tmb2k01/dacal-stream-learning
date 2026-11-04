@@ -1,0 +1,70 @@
+# Lower Baseline Configuration for CIFAR-10-C Stream Learning
+# - Model weights remain strictly frozen (active learning disabled)
+# - Drift detector disabled (no adaptation / no reset)
+# - Conformal prediction calibrated on clean data only (static calibration)
+# - Evaluates performance collapse and coverage loss under corruptions (concept drift)
+
+model:
+  name: simple_cnn
+  num_classes: 10
+  device: auto
+  checkpoint_path: artifacts/models/simplecnn_cifar10_seed42_ep10.pt
+  force_retrain: false
+  mean: [0.4914, 0.4822, 0.4465]
+  std: [0.2470, 0.2435, 0.2616]
+  dropout: 0.4
+  training:
+    auto_train: false
+    clean_root: data
+    seed: 42
+    epochs: 10
+    batch_size: 128
+    calibration_size: 5000
+    num_workers: 0
+    accelerator: auto
+    devices: auto
+    lr: 0.001
+    weight_decay: 0.0001
+    scheduler: cosine_annealing
+
+conformal:
+  name: classification
+  enabled: true
+  alpha: 0.1
+  window_size: 500
+  min_online_samples: 50
+  min_samples_per_class: 10
+
+# Drift detection disabled: pure lower baseline
+drift_detector:
+  enabled: false
+
+# Active learning disabled: model weights strictly frozen
+active_policy:
+  enabled: false
+
+dataset:
+  name: cifar10c_stream
+  data_dir: data/CIFAR-10-C
+  labels_file: labels.npy
+  clean_root: data
+  severity: 1
+  channel_first: false
+  normalize: false
+  dtype: float32
+
+  segments:
+    - name: clean
+      corruption: clean
+      count: 500
+      start: 0  # disjoint images per segment
+    - name: gaussian-noise
+      corruption: gaussian_noise
+      count: 500
+      severity: 1
+      start: 500  # disjoint images per segment
+    - name: shot-noise
+      corruption: shot_noise
+      count: 500
+      severity: 1
+      start: 1000  # disjoint images per segment

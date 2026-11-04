@@ -4,11 +4,16 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from active_learning import BaseActivePolicy
 from conformal import BaseConformalCalibrator
-from drift import BaseDriftDetector
+from drift import BaseDriftDetector, DriftEvent
 from engine.state import EngineState
 from models import BasePredictor
+
+
+_LABEL_FREE_SIGNALS = {"confidence", "set_size", "embedding", "step"}
 
 
 @dataclass
@@ -29,12 +34,23 @@ class StreamSimulationEngine:
         active_policy: BaseActivePolicy | None = None,
         drift_detector: BaseDriftDetector | None = None,
         label_oracle: Any | None = None,
+        drift_burst: int = 100,
+        burst_rate: float = 0.8,
+        seed: int = 0,
+        supervised_signals_require_query: bool = True,
     ):
         self.predictor: BasePredictor = predictor
         self.calibrator = calibrator
         self.active_policy = active_policy
         self.drift_detector = drift_detector
         self.label_oracle = label_oracle
+        self.drift_burst = drift_burst
+        self.burst_rate = burst_rate
+        # Active-learning semantics: the ground truth of an unqueried item is unknown, so
+        # detectors fed by "error"/"loss" only see items whose label was queried. Set to
+        # False to give them free labels on every step (optimistic, offline-style ablation).
+        self.supervised_signals_require_query = supervised_signals_require_query
+        self._rng = np.random.default_rng(seed)
         self.state = EngineState()
 
     @classmethod
@@ -45,6 +61,9 @@ class StreamSimulationEngine:
         calibrator: BaseConformalCalibrator | None = None,
         active_policy: BaseActivePolicy | None = None,
         drift_detector: BaseDriftDetector | None = None,
+        drift_burst: int = 100,
+        burst_rate: float = 0.8,
+        seed: int = 0,
     ) -> StreamSimulationEngine:
         engine = cls(
             predictor=predictor,
@@ -52,6 +71,9 @@ class StreamSimulationEngine:
             active_policy=active_policy,
             drift_detector=drift_detector,
             label_oracle=dataset,
+            drift_burst=drift_burst,
+            burst_rate=burst_rate,
+            seed=seed,
         )
         engine.fit_initial(dataset)
         return engine
@@ -73,6 +95,11 @@ class StreamSimulationEngine:
     def step(self, raw_item: dict[str, Any]) -> dict[str, Any]:
         """Run one stream item through the full simulation workflow."""
         step_index = self.state.step
+        if self.state.drift_mode:
+            self.state.drift_steps_left -= 1
+            if self.state.drift_steps_left <= 0:
+                self.state.drift_mode = False
+
         x = raw_item["x"]
         y_true = raw_item.get("y")
         metadata = raw_item.get("metadata", {})
@@ -92,6 +119,9 @@ class StreamSimulationEngine:
             if self.active_policy is not None
             else False
         )
+        if self.state.drift_mode and not queried:
+            queried = bool(self._rng.random() < self.burst_rate)
+
         y_observed = self._query_label(raw_item) if queried else None
 
         # 4. Optional online update: only queried labels update adaptive components.
@@ -115,7 +145,15 @@ class StreamSimulationEngine:
         # 5. Optional drift detection: by default detectors consume prediction error.
         point_prediction = prediction.get("point_prediction")
         correct = self._is_correct(point_prediction, y_true)
-        drift_event = self._update_drift_detector(correct)
+        drift_event = self._update_drift_detector(
+            correct=correct,
+            step_index=step_index,
+            x=x,
+            prediction=prediction,
+            conformal_output=conformal_output,
+            y_true=y_true,
+            label_available=y_observed is not None,
+        )
         if drift_event is not None and drift_event.drift:
             self._handle_drift()
 
@@ -187,6 +225,7 @@ class StreamSimulationEngine:
 
     def _handle_drift(self):
         self.state.drift_mode = True
+        self.state.drift_steps_left = self.drift_burst
         if self.calibrator is not None:
             self.calibrator.reset()
         self.predictor.reset_adaptation_state()
@@ -218,8 +257,66 @@ class StreamSimulationEngine:
             return self.label_oracle.query(raw_item)
         return raw_item.get("y")
 
-    def _update_drift_detector(self, correct: bool | None):
-        if self.drift_detector is None or correct is None:
+    def _update_drift_detector(
+        self,
+        correct: bool | None = None,
+        *,
+        step_index: int = 0,
+        x: Any = None,
+        prediction: dict[str, Any] | None = None,
+        conformal_output: dict[str, Any] | None = None,
+        y_true: Any = None,
+        label_available: bool = True,
+    ) -> DriftEvent | None:
+        if self.drift_detector is None:
             return None
-        error = 0.0 if correct else 1.0
-        return self.drift_detector.update(error)
+
+        signal_name = getattr(self.drift_detector, "signal", "error")
+        needs_label = signal_name in {"error", "loss"} or signal_name not in _LABEL_FREE_SIGNALS
+        if needs_label and self.supervised_signals_require_query and not label_available:
+            return None
+        if signal_name == "error":
+            if correct is None:
+                return None
+            val: Any = 0.0 if correct else 1.0
+        elif signal_name == "loss":
+            if y_true is None:
+                return None
+            probs = (prediction or {}).get("probs")
+            if probs is None:
+                return None
+            if hasattr(probs, "detach"):
+                probs = probs.detach().cpu().numpy()
+            probs_arr = np.asarray(probs).reshape(-1)
+            y_int = int(y_true)
+            val = float(-np.log(np.clip(probs_arr[y_int], 1e-12, 1.0)))
+        elif signal_name == "confidence":
+            probs = (prediction or {}).get("probs")
+            if probs is not None:
+                if hasattr(probs, "detach"):
+                    probs = probs.detach().cpu().numpy()
+                val = float(np.asarray(probs).max())
+            else:
+                unc = (prediction or {}).get("uncertainty")
+                val = 1.0 - float(self._first_value(unc)) if unc is not None else 0.5
+        elif signal_name == "set_size":
+            set_size = (conformal_output or {}).get("set_size")
+            if set_size is None:
+                return None
+            val = float(self._first_value(set_size))
+        elif signal_name == "embedding":
+            emb = (prediction or {}).get("embedding")
+            if emb is not None:
+                if hasattr(emb, "detach"):
+                    emb = emb.detach().cpu().numpy()
+                val = np.asarray(emb)
+            else:
+                val = np.asarray(x)
+        elif signal_name == "step":
+            val = float(step_index)
+        else:
+            if correct is None:
+                return None
+            val = 0.0 if correct else 1.0
+
+        return self.drift_detector.update(val)

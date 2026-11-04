@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from models import SimpleCNN, SklearnClassifierPredictor
+import numpy as np
+
+from models import RiverClassifierPredictor, SimpleCNN, SklearnClassifierPredictor
 
 
 class ModelFactory:
@@ -20,6 +22,9 @@ class ModelFactory:
         if model_name == "sgd_classifier":
             return SklearnClassifierPredictor.from_config(model_cfg)
 
+        if model_name in {"river_classifier", "river_softmax"}:
+            return RiverClassifierPredictor.from_config(model_cfg)
+
         raise ValueError(f"Unsupported model: model.name={model_name!r}")
 
     @staticmethod
@@ -32,6 +37,8 @@ class ModelFactory:
 
         if checkpoint_path and Path(checkpoint_path).exists() and not force_retrain:
             predictor.load(checkpoint_path)
+            predictor.snapshot_initial_state()
+            ModelFactory._maybe_set_anchor(predictor, model_cfg)
             return
 
         training_cfg = model_cfg.get("training", {})
@@ -50,3 +57,25 @@ class ModelFactory:
         )
         if checkpoint_path:
             predictor.save(checkpoint_path)
+        predictor.snapshot_initial_state()
+        ModelFactory._maybe_set_anchor(predictor, model_cfg)
+
+    @staticmethod
+    def _maybe_set_anchor(predictor: SimpleCNN, model_cfg: dict[str, Any]) -> None:
+        """Give the model clean *training* images to mix into online updates (never stream data)."""
+        size = int(model_cfg.get("online_anchor_size", 0))
+        if size <= 0 or model_cfg.get("online_anchor_batch", 0) <= 0:
+            return
+        training_cfg = model_cfg.get("training", {})
+        subset = SimpleCNN._clean_cifar10_subset(
+            root=training_cfg.get("clean_root", "data"),
+            seed=training_cfg.get("seed", 42),
+            calibration_size=training_cfg.get("calibration_size", 5000),
+            split="train",
+            transform=None,
+        )
+        picks = subset.indices[:size]
+        data = subset.dataset
+        x = np.stack([np.asarray(data.data[i]) for i in picks]).astype("float32")
+        y = np.asarray([data.targets[i] for i in picks])
+        predictor.set_anchor_data(x, y)

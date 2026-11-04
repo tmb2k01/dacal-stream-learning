@@ -36,6 +36,7 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
         channel_first: bool = False,
         normalize: bool = False,
         dtype: str = "float32",
+        enforce_disjoint: bool = True,
     ):
         if not segments:
             raise ValueError("segments must contain at least one stream segment")
@@ -49,6 +50,7 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
         self.channel_first = channel_first
         self.normalize = normalize
         self.dtype = dtype
+        self.enforce_disjoint = enforce_disjoint
 
         self.segments = [self._parse_segment(segment, idx) for idx, segment in enumerate(segments)]
 
@@ -56,9 +58,12 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
         self.y_stream: np.ndarray
         self.segment_idx: np.ndarray
         self.source_indices: np.ndarray
+        self.underlying_indices: np.ndarray
         self.drift_positions: list[int]
         self._segment_metadata: list[dict[str, Any]]
         self._build_stream()
+        if self.enforce_disjoint:
+            self.validate_disjoint_sources()
 
     @classmethod
     def from_config(cls, dataset_cfg: dict[str, Any]) -> CIFAR10CStreamDataset:
@@ -72,6 +77,7 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
             channel_first=dataset_cfg.get("channel_first", False),
             normalize=dataset_cfg.get("normalize", False),
             dtype=dataset_cfg.get("dtype", "float32"),
+            enforce_disjoint=dataset_cfg.get("enforce_disjoint", True),
             segments=dataset_cfg["segments"],
         )
 
@@ -105,16 +111,18 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
         y_parts: list[np.ndarray] = []
         segment_parts: list[np.ndarray] = []
         source_index_parts: list[np.ndarray] = []
+        underlying_parts: list[np.ndarray] = []
         self._segment_metadata = []
 
         offset = 0
         self.drift_positions = []
         for segment_idx, segment in enumerate(self.segments):
-            x_segment, y_segment, source_indices = self._load_segment(segment)
+            x_segment, y_segment, source_indices, underlying = self._load_segment(segment)
             x_parts.append(self._format_images(x_segment))
             y_parts.append(y_segment.astype(int, copy=False))
             segment_parts.append(np.full(segment.count, segment_idx, dtype=int))
             source_index_parts.append(source_indices)
+            underlying_parts.append(underlying)
             self._segment_metadata.append(
                 {
                     "name": segment.name,
@@ -133,12 +141,32 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
         self.y_stream = np.concatenate(y_parts, axis=0)
         self.segment_idx = np.concatenate(segment_parts, axis=0)
         self.source_indices = np.concatenate(source_index_parts, axis=0)
+        self.underlying_indices = np.concatenate(underlying_parts, axis=0)
 
-    def _load_segment(self, segment: CIFAR10CSegment) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def validate_disjoint_sources(self) -> None:
+        """Raise if the same underlying CIFAR-10 test image appears in more than one stream position.
+
+        CIFAR-10-C file ``k`` is the corruption of clean test image ``k``, so segments that all
+        start at 0 would show the same 250 images again (corrupted) after the model already
+        received their labels. Give every segment its own ``start`` range instead.
+        """
+        values, counts = np.unique(self.underlying_indices, return_counts=True)
+        repeated = values[counts > 1]
+        if repeated.size:
+            raise ValueError(
+                f"{repeated.size} underlying test images appear more than once in the stream "
+                f"(e.g. {repeated[:5].tolist()}). Use non-overlapping 'start' ranges per segment, "
+                "or set dataset.enforce_disjoint: false to allow reuse."
+            )
+
+    def _load_segment(
+        self, segment: CIFAR10CSegment
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Return images, labels, file indices, and underlying clean-test-image indices."""
         if segment.corruption in {"clean", "clear"}:
             X, y = self._load_clean_data()
             source_indices = self._segment_indices(segment.start, segment.count, len(y))
-            return X[source_indices], y[source_indices], source_indices
+            return X[source_indices], y[source_indices], source_indices, source_indices
 
         x_path = self.data_dir / f"{segment.corruption}.npy"
         y_path = self.data_dir / self.labels_file
@@ -160,7 +188,7 @@ class CIFAR10CStreamDataset(BaseStreamDataset):
         labels = y[severity_start:severity_stop] if y.shape[0] >= severity_stop else y[:10_000]
         source_indices = self._segment_indices(segment.start, segment.count, len(labels))
         image_indices = source_indices + severity_start
-        return X[image_indices], labels[source_indices], image_indices
+        return X[image_indices], labels[source_indices], image_indices, source_indices
 
     def _load_clean_data(self) -> tuple[np.ndarray, np.ndarray]:
         if self.clean_data_file is not None:

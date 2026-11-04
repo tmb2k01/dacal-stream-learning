@@ -54,6 +54,19 @@ When `false`, values are only cast to `dtype`. Defaults to `false`.
 
 `dtype`: NumPy dtype used for returned image arrays. Defaults to `float32`.
 
+## No Repeated Images (`enforce_disjoint`)
+
+File `k` of every CIFAR-10-C corruption is the corrupted version of clean CIFAR-10
+test image `k`. If two segments both use `start: 0`, the second segment shows the
+same images again, after the model may already have received their labels.
+`enforce_disjoint` (default `true`) rejects such configs with a `ValueError`; give each
+segment its own `start` range, as in `configs/cifar10c_stream.yaml`. The dataset exposes
+`underlying_indices` (the clean test image index of each stream item) for checking.
+Set `enforce_disjoint: false` only if repeating images is intended.
+
+The model is trained on the CIFAR-10 *train* split, while the stream uses the *test* split.
+`python -m experiments.verify_data_splits` checks both properties.
+
 ## Clean CIFAR-10 Settings
 
 Clean segments use `corruption: clean` or `corruption: clear`.
@@ -84,7 +97,7 @@ corruption name is used.
 `severity`. Ignored for clean segments.
 
 `start`: starting index inside the selected clean/severity slice. Defaults to
-`0`.
+`0`. Use different ranges for different segments (see `enforce_disjoint`).
 
 ## Stream Items
 

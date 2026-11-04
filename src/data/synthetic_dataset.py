@@ -8,7 +8,15 @@ from data.stream_dataset import BaseStreamDataset
 
 
 class SyntheticDriftStreamDataset(BaseStreamDataset):
-    """Synthetic binary stream with abrupt phase-wise concept drift."""
+    """Synthetic binary stream with abrupt phase-wise concept drift ("L Sudden 3"-style).
+
+    By default (``separate_train=False``) the first stream phase doubles as
+    the training set, matching the original notebooks / localizer protocol.
+    With ``separate_train=True`` fresh phase-0 draws from an independent RNG
+    are used for ``X_train`` and ``X_cal`` (``n_calibration`` samples), so the
+    stream's phase 0 is held out and conformal calibration is exchangeable
+    with pre-drift stream data.
+    """
 
     dataset_name = "synthetic_drift"
 
@@ -20,6 +28,9 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
         n_features: int = 10,
         noise_std: float = 0.6,
         drift_angle: float = float(np.pi / 2),
+        separate_train: bool = False,
+        n_train: int | None = None,
+        n_calibration: int = 0,
     ):
         if n_per_phase < 2:
             raise ValueError("n_per_phase must be >= 2")
@@ -36,6 +47,13 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
         self.n_features = n_features
         self.noise_std = noise_std
         self.drift_angle = drift_angle
+        self.separate_train = separate_train
+        self.n_train = int(n_train) if n_train is not None else n_per_phase
+        self.n_calibration = int(n_calibration)
+        if self.n_train < 2 or self.n_train % 2 != 0:
+            raise ValueError("n_train must be an even number >= 2")
+        if self.n_calibration < 0 or self.n_calibration % 2 != 0:
+            raise ValueError("n_calibration must be an even number >= 0")
 
         self.X_train: np.ndarray
         self.y_train: np.ndarray
@@ -54,6 +72,9 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
             n_features=dataset_cfg.get("n_features", 10),
             noise_std=dataset_cfg.get("noise_std", 0.6),
             drift_angle=dataset_cfg.get("drift_angle", float(np.pi / 2)),
+            separate_train=dataset_cfg.get("separate_train", False),
+            n_train=dataset_cfg.get("n_train"),
+            n_calibration=dataset_cfg.get("n_calibration", 0),
         )
 
     def _build_stream(self) -> None:
@@ -79,6 +100,25 @@ class SyntheticDriftStreamDataset(BaseStreamDataset):
         self.y_stream = np.hstack(phases_y)
         self.phase_idx = np.repeat(np.arange(self.n_phases), self.n_per_phase)
         self.drift_positions = [self.n_per_phase * p for p in range(1, self.n_phases)]
+
+        # Independent RNG so that the stream itself is unchanged by these options.
+        holdout_rng = np.random.default_rng(self.seed + 10_007)
+        if self.separate_train:
+            self.X_train, self.y_train = self._make_phase(
+                rng=holdout_rng,
+                n_per_class=self.n_train // 2,
+                n_features=self.n_features,
+                noise_std=self.noise_std,
+                rotation=0.0,
+            )
+        if self.n_calibration > 0:
+            self.X_cal, self.y_cal = self._make_phase(
+                rng=holdout_rng,
+                n_per_class=self.n_calibration // 2,
+                n_features=self.n_features,
+                noise_std=self.noise_std,
+                rotation=0.0,
+            )
 
     @staticmethod
     def _rotation_matrix(n_features: int, angle: float) -> np.ndarray:

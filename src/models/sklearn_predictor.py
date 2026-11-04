@@ -24,8 +24,14 @@ class SklearnClassifierPredictor(L.LightningModule, BasePredictor):
         self.save_hyperparameters()
         self.automatic_optimization = False
         self.classes = np.array(classes if classes is not None else [0, 1])
-        self.model = SGDClassifier(loss=loss, alpha=alpha, random_state=random_state)
+        self._loss = loss
+        self._alpha = alpha
+        self._random_state = random_state
+        self.model = self._new_model()
         self._is_fitted = False
+
+    def _new_model(self) -> SGDClassifier:
+        return SGDClassifier(loss=self._loss, alpha=self._alpha, random_state=self._random_state)
 
     @classmethod
     def from_config(cls, model_cfg: dict[str, Any]) -> SklearnClassifierPredictor:
@@ -88,6 +94,9 @@ class SklearnClassifierPredictor(L.LightningModule, BasePredictor):
         self._is_fitted = True
 
     def reset_adaptation_state(self) -> None:
+        # Re-create the estimator: SGDClassifier.partial_fit would otherwise keep
+        # learning from the pre-drift weights, making the reset a no-op.
+        self.model = self._new_model()
         self._is_fitted = False
 
     @staticmethod

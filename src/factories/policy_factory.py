@@ -1,4 +1,9 @@
-from active_learning import HybridActivePolicy, UncertaintySamplingPolicy
+from active_learning import (
+    AlwaysQueryPolicy,
+    HybridActivePolicy,
+    RandomQueryPolicy,
+    UncertaintySamplingPolicy,
+)
 
 
 class PolicyFactory:
@@ -11,7 +16,6 @@ class PolicyFactory:
         name = policy_cfg.get("name")
         if name in {None, "none"}:
             return None
-
         if name == "uncertainty":
             return UncertaintySamplingPolicy(threshold=policy_cfg["threshold"])
         if name == "hybrid":
@@ -19,5 +23,13 @@ class PolicyFactory:
                 unc_threshold=policy_cfg["unc_threshold"],
                 set_size_threshold=policy_cfg["set_size_threshold"],
             )
+        if name == "random":
+            return RandomQueryPolicy(
+                rate=policy_cfg["rate"],
+                burst_rate=policy_cfg.get("burst_rate"),
+                seed=policy_cfg.get("seed", config.get("seed", 0)),
+            )
+        if name in {"always", "full"}:
+            return AlwaysQueryPolicy()
 
         raise ValueError(f"Unsupported active policy: {name!r}")

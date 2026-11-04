@@ -50,14 +50,14 @@ dataset:
     - name: clean
       corruption: clean
       count: 200
-      start: 0
+      start: 0  # disjoint images per segment
     - name: gaussian-noise
       corruption: gaussian_noise
       count: 200
       severity: 1
-      start: 0
+      start: 200  # disjoint images per segment
     - name: shot-noise
       corruption: shot_noise
       count: 200
       severity: 1
-      start: 0
+      start: 400  # disjoint images per segment
