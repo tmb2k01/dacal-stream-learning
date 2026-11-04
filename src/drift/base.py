@@ -10,6 +10,8 @@ class DriftEvent:
 
 
 class BaseDriftDetector(ABC):
+    """Detectors reset their own state when update() reports drift."""
+
     @abstractmethod
     def update(self, value: float) -> DriftEvent:
         pass
