@@ -39,7 +39,7 @@ class CalibratorFactory:
         kwargs: dict[str, Any] = {
             "alpha": conformal_cfg.get("alpha", 0.1),
             "num_classes": num_classes,
-            "window_size": conformal_cfg.get("window_size", None),
+            "window_size": conformal_cfg.get("window_size"),
             "min_online_samples": conformal_cfg.get("min_online_samples", 1),
             "min_samples_per_class": conformal_cfg.get("min_samples_per_class", 0),
         }

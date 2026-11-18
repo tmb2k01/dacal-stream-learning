@@ -12,7 +12,6 @@ from drift import BaseDriftDetector, DriftEvent
 from engine.state import EngineState
 from models import BasePredictor
 
-
 _LABEL_FREE_SIGNALS = {"confidence", "set_size", "embedding", "step"}
 
 

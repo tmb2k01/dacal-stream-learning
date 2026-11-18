@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from drift import (
     ADWINDetector,
-    AdaptiveMMDDriftDetector,
     CUSUMDriftDetector,
     DDMDetector,
     KSDriftDetector,
     MMDDriftDetector,
     OracleDriftDetector,
     PageHinkleyDetector,
-    RunningStatsBaselineDetector,
 )
 from engine.stream_engine import StreamSimulationEngine
 from models.base import BasePredictor

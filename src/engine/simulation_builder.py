@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 import yaml
 
-from factories.calibrator_factory import CalibratorFactory, SET_PREDICTORS
 from engine.stream_engine import StreamSimulationEngine
+from factories.calibrator_factory import SET_PREDICTORS, CalibratorFactory
 from factories.dataset_factory import DatasetFactory
 from factories.detector_factory import DriftDetectorFactory
 from factories.model_factory import ModelFactory

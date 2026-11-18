@@ -1,6 +1,6 @@
 from drift import (
-    ADWINDetector,
     AdaptiveMMDDriftDetector,
+    ADWINDetector,
     C2STDriftDetector,
     CUSUMDriftDetector,
     DDMDetector,
