@@ -26,6 +26,7 @@ class UncertaintySamplingPolicy(BaseActivePolicy):
         probs = prediction.get("probs")
         if probs is None:
             return False
+
         max_prob = _max_value(probs)
         return 1.0 - max_prob >= self.threshold
 
@@ -46,7 +47,43 @@ class HybridActivePolicy(BaseActivePolicy):
         set_size = conformal_output.get("set_size")
         if set_size is None:
             return False
+
         return _max_value(set_size) >= self.set_size_threshold
+
+    def update(self, feedback: dict) -> None:
+        pass
+
+
+class RandomQueryPolicy(BaseActivePolicy):
+    """B2 baseline: query each label independently with probability ``rate``.
+
+    Used at the same budget (query rate) as an active policy to test whether
+    uncertainty / conformal-driven selection beats random selection.
+    """
+
+    def __init__(self, rate: float, burst_rate: float | None = None, seed: int = 0):
+        if not 0.0 <= rate <= 1.0:
+            raise ValueError("rate must be in [0, 1]")
+        if burst_rate is not None and not 0.0 <= burst_rate <= 1.0:
+            raise ValueError("burst_rate must be in [0, 1]")
+        self.rate = float(rate)
+        self.burst_rate = float(burst_rate) if burst_rate is not None else float(rate)
+        self.seed = int(seed)
+        self._rng = np.random.default_rng(seed)
+
+    def should_query(self, x: Any, prediction: dict, conformal_output: dict, state: dict) -> bool:
+        rate = self.burst_rate if state.get("drift_mode", False) else self.rate
+        return bool(self._rng.random() < rate)
+
+    def update(self, feedback: dict) -> None:
+        pass
+
+
+class AlwaysQueryPolicy(BaseActivePolicy):
+    """B1 baseline: every label is revealed (100 % budget, full supervision)."""
+
+    def should_query(self, x: Any, prediction: dict, conformal_output: dict, state: dict) -> bool:
+        return True
 
     def update(self, feedback: dict) -> None:
         pass

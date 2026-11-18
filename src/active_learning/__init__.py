@@ -1,3 +1,15 @@
-from active_learning.base import BaseActivePolicy, HybridActivePolicy, UncertaintySamplingPolicy
+from active_learning.base import (
+    AlwaysQueryPolicy,
+    BaseActivePolicy,
+    HybridActivePolicy,
+    RandomQueryPolicy,
+    UncertaintySamplingPolicy,
+)
 
-__all__ = ["BaseActivePolicy", "HybridActivePolicy", "UncertaintySamplingPolicy"]
+__all__ = [
+    "AlwaysQueryPolicy",
+    "BaseActivePolicy",
+    "HybridActivePolicy",
+    "RandomQueryPolicy",
+    "UncertaintySamplingPolicy",
+]
