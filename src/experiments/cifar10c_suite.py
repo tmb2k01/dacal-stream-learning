@@ -87,7 +87,9 @@ def stream_config(
     """Three-segment stream where segment ``i`` reads images ``first_start + i*count`` onward."""
     last_stop = first_start + len(SEGMENT_PLAN) * count_per_segment
     if last_stop > pool_end:
-        raise ValueError(f"stream window [{first_start}, {last_stop}) exceeds the pool end {pool_end}")
+        raise ValueError(
+            f"stream window [{first_start}, {last_stop}) exceeds the pool end {pool_end}"
+        )
     segments = []
     for i, (name, corruption) in enumerate(SEGMENT_PLAN):
         seg: dict[str, Any] = {
@@ -126,7 +128,9 @@ def configurations(seed: int, rate: float = 0.05, burst_rate: float = 0.8) -> li
     """The 11 compared configurations. ``group`` drives figure grouping (<= 5 curves per figure)."""
     al = {"enabled": True, "name": "random", "rate": rate, "burst_rate": burst_rate, "seed": seed}
 
-    def det(name: str, group: str, kind: str, signal: str, detector: dict[str, Any]) -> dict[str, Any]:
+    def det(
+        name: str, group: str, kind: str, signal: str, detector: dict[str, Any]
+    ) -> dict[str, Any]:
         return {
             "name": name,
             "group": group,
@@ -153,40 +157,87 @@ def configurations(seed: int, rate: float = 0.05, burst_rate: float = 0.8) -> li
             "active_policy": al,
             "drift_detector": {"enabled": False},
         },
-        det("Upper Bound: Oracle", "reference", "Privileged", "step", {"name": "oracle", "delay": 0}),
         det(
-            "Supervised: Baseline Z-Score", "supervised", "Supervised", "error",
+            "Upper Bound: Oracle", "reference", "Privileged", "step", {"name": "oracle", "delay": 0}
+        ),
+        det(
+            "Supervised: Baseline Z-Score",
+            "supervised",
+            "Supervised",
+            "error",
             {"name": "baseline", "warmup_size": 10, "threshold_std": 2.5, "consecutive": 2},
         ),
-        det("Supervised: ADWIN", "supervised", "Supervised", "error", {"name": "adwin", "delta": 0.01}),
         det(
-            "Supervised: DDM", "supervised", "Supervised", "error",
+            "Supervised: ADWIN",
+            "supervised",
+            "Supervised",
+            "error",
+            {"name": "adwin", "delta": 0.01},
+        ),
+        det(
+            "Supervised: DDM",
+            "supervised",
+            "Supervised",
+            "error",
             {"name": "ddm", "warm_start": 10, "warning_threshold": 1.5, "drift_threshold": 2.5},
         ),
         det(
-            "Supervised: Page-Hinkley", "supervised", "Supervised", "error",
+            "Supervised: Page-Hinkley",
+            "supervised",
+            "Supervised",
+            "error",
             {"name": "page_hinkley", "delta": 0.005, "threshold": 5.0, "min_instances": 10},
         ),
         det(
-            "Label-Free: KS Test (Confidence)", "label_free", "Label-Free", "confidence",
-            {"name": "ks", "window_size": 50, "test_every": 20, "alpha": 0.05, "signal": "confidence", "seed": seed},
-        ),
-        det(
-            "Label-Free: CUSUM (Confidence)", "label_free", "Label-Free", "confidence",
-            {"name": "cusum", "k": 0.5, "h": 4.0, "block_size": 20, "signal": "confidence"},
-        ),
-        det(
-            "Label-Free: MMD (Embedding)", "label_free", "Label-Free", "embedding",
+            "Label-Free: KS Test (Confidence)",
+            "label_free",
+            "Label-Free",
+            "confidence",
             {
-                "name": "mmd", "window_size": 50, "test_every": 20, "alpha": 0.05,
-                "n_permutations": 50, "pca_components": 16, "seed": seed,
+                "name": "ks",
+                "window_size": 50,
+                "test_every": 20,
+                "alpha": 0.05,
+                "signal": "confidence",
+                "seed": seed,
             },
         ),
         det(
-            "Label-Free: Adaptive MMD", "label_free", "Label-Free", "embedding",
+            "Label-Free: CUSUM (Confidence)",
+            "label_free",
+            "Label-Free",
+            "confidence",
+            {"name": "cusum", "k": 0.5, "h": 4.0, "block_size": 20, "signal": "confidence"},
+        ),
+        det(
+            "Label-Free: MMD (Embedding)",
+            "label_free",
+            "Label-Free",
+            "embedding",
             {
-                "name": "adaptive_mmd", "window_size": 50, "test_every": 20, "alpha": 0.05,
-                "n_permutations": 50, "pca_components": 16, "rebuild_size": 100, "seed": seed,
+                "name": "mmd",
+                "window_size": 50,
+                "test_every": 20,
+                "alpha": 0.05,
+                "n_permutations": 50,
+                "pca_components": 16,
+                "seed": seed,
+            },
+        ),
+        det(
+            "Label-Free: Adaptive MMD",
+            "label_free",
+            "Label-Free",
+            "embedding",
+            {
+                "name": "adaptive_mmd",
+                "window_size": 50,
+                "test_every": 20,
+                "alpha": 0.05,
+                "n_permutations": 50,
+                "pca_components": 16,
+                "rebuild_size": 100,
+                "seed": seed,
             },
         ),
     ]

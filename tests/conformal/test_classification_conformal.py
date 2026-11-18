@@ -11,6 +11,7 @@ from conformal.classification_conformal import ClassificationConformalPredictor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_predictor(**kwargs) -> ClassificationConformalPredictor:
     """Return a predictor pre-calibrated on 100 synthetic scores."""
     cp = ClassificationConformalPredictor(alpha=0.1, num_classes=3, **kwargs)
@@ -28,6 +29,7 @@ def _prediction(probs: list[float]) -> dict:
 # ---------------------------------------------------------------------------
 # Initial calibration
 # ---------------------------------------------------------------------------
+
 
 class TestInitialCalibration:
     def test_calibrate_scores_sets_q_hat(self):
@@ -48,7 +50,13 @@ class TestInitialCalibration:
     def test_predict_set_returns_expected_keys(self):
         cp = _make_predictor()
         out = cp.predict_set({"probs": np.array([0.1, 0.2, 0.7])})
-        assert {"prediction_set", "prediction_set_labels", "set_size", "q_hat", "alpha"} <= out.keys()
+        assert {
+            "prediction_set",
+            "prediction_set_labels",
+            "set_size",
+            "q_hat",
+            "alpha",
+        } <= out.keys()
 
     def test_compute_q_hat_correctness(self):
         # With n=3, alpha=0.1: quantile_level = min(1, ceil(4*0.9)/3) = min(1, ceil(3.6)/3) = 1.0
@@ -61,6 +69,7 @@ class TestInitialCalibration:
 # ---------------------------------------------------------------------------
 # Online update: q_hat adapts after min_online_samples
 # ---------------------------------------------------------------------------
+
 
 class TestOnlineUpdate:
     def test_update_does_not_change_q_hat_below_min_online_samples(self):
@@ -121,6 +130,7 @@ class TestOnlineUpdate:
 # Sliding window eviction
 # ---------------------------------------------------------------------------
 
+
 class TestSlidingWindow:
     def test_window_caps_at_window_size(self):
         cp = _make_predictor(window_size=10, min_online_samples=1)
@@ -165,10 +175,10 @@ class TestSlidingWindow:
     def test_min_samples_per_class_evicts_oldest_excess_sample(self):
         cp = _make_predictor(window_size=4, min_online_samples=1, min_samples_per_class=1)
         cp.update(_prediction([0.9, 0.05, 0.05]), y_true=0)  # score 0.1
-        cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)    # score 0.2
-        cp.update(_prediction([0.1, 0.1, 0.7]), y_true=2)    # score 0.3
-        cp.update(_prediction([0.1, 0.1, 0.6]), y_true=2)    # score 0.4
-        cp.update(_prediction([0.1, 0.1, 0.5]), y_true=2)    # score 0.5
+        cp.update(_prediction([0.1, 0.1, 0.8]), y_true=2)  # score 0.2
+        cp.update(_prediction([0.1, 0.1, 0.7]), y_true=2)  # score 0.3
+        cp.update(_prediction([0.1, 0.1, 0.6]), y_true=2)  # score 0.4
+        cp.update(_prediction([0.1, 0.1, 0.5]), y_true=2)  # score 0.5
         assert list(cp._online_labels) == [0, 2, 2, 2]
         assert list(cp._online_scores) == pytest.approx([0.1, 0.3, 0.4, 0.5])
 
@@ -191,6 +201,7 @@ class TestSlidingWindow:
 # ---------------------------------------------------------------------------
 # reset() restores initial q_hat
 # ---------------------------------------------------------------------------
+
 
 class TestReset:
     def test_reset_clears_online_scores(self):
@@ -228,6 +239,7 @@ class TestReset:
 # recalibrate()
 # ---------------------------------------------------------------------------
 
+
 class TestRecalibrate:
     def test_recalibrate_uses_online_window_when_available(self):
         cp = _make_predictor(min_online_samples=1, window_size=50)
@@ -262,6 +274,7 @@ class TestRecalibrate:
 # Constructor validation
 # ---------------------------------------------------------------------------
 
+
 class TestConstructorValidation:
     def test_invalid_alpha_raises(self):
         with pytest.raises(ValueError):
@@ -290,4 +303,3 @@ class TestConstructorValidation:
             ClassificationConformalPredictor(
                 num_classes=10, window_size=50, min_samples_per_class=6
             )
-

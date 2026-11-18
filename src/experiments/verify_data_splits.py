@@ -40,13 +40,19 @@ def _hashes(images: np.ndarray) -> list[str]:
     return [hashlib.md5(np.ascontiguousarray(img).tobytes()).hexdigest() for img in images]
 
 
-def verify(n_seeds: int = 5, count: int = 250, seed: int = 42, calibration_size: int = 5000) -> dict:
+def verify(
+    n_seeds: int = 5, count: int = 250, seed: int = 42, calibration_size: int = 5000
+) -> dict:
     train_full = CIFAR10(root=CLEAN_ROOT, train=True, download=False)
     test = CIFAR10(root=CLEAN_ROOT, train=False, download=False)
 
-    train_idx = np.array(SimpleCNN._clean_cifar10_subset(CLEAN_ROOT, seed, calibration_size, "train", None).indices)
+    train_idx = np.array(
+        SimpleCNN._clean_cifar10_subset(CLEAN_ROOT, seed, calibration_size, "train", None).indices
+    )
     cal_idx = np.array(
-        SimpleCNN._clean_cifar10_subset(CLEAN_ROOT, seed, calibration_size, "calibration", None).indices
+        SimpleCNN._clean_cifar10_subset(
+            CLEAN_ROOT, seed, calibration_size, "calibration", None
+        ).indices
     )
 
     report: dict = {
@@ -57,7 +63,9 @@ def verify(n_seeds: int = 5, count: int = 250, seed: int = 42, calibration_size:
 
     train_hashes = set(_hashes(train_full.data[train_idx]))
     test_hashes = _hashes(test.data)
-    report["train_test_exact_duplicates_in_whole_test_set"] = int(sum(h in train_hashes for h in test_hashes))
+    report["train_test_exact_duplicates_in_whole_test_set"] = int(
+        sum(h in train_hashes for h in test_hashes)
+    )
 
     seen_pool: set[int] = set()
     windows = []
@@ -69,11 +77,15 @@ def verify(n_seeds: int = 5, count: int = 250, seed: int = 42, calibration_size:
 
         clean_mask = ds.segment_idx == 0
         clean_idx = underlying[clean_mask]
-        clean_pixels_match = bool(np.array_equal(ds.X_stream[clean_mask], test.data[clean_idx].astype("float32")))
+        clean_pixels_match = bool(
+            np.array_equal(ds.X_stream[clean_mask], test.data[clean_idx].astype("float32"))
+        )
         labels_match = bool(np.array_equal(ds.y_stream, np.asarray(test.targets)[underlying]))
         dup_with_train = int(sum(test_hashes[i] in train_hashes for i in underlying))
 
-        shared_with_earlier = int(np.intersect1d(underlying, np.fromiter(seen_pool, dtype=int)).size)
+        shared_with_earlier = int(
+            np.intersect1d(underlying, np.fromiter(seen_pool, dtype=int)).size
+        )
         seen_pool.update(int(i) for i in underlying)
         windows.append(
             {

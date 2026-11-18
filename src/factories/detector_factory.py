@@ -98,7 +98,9 @@ class DriftDetectorFactory:
             positions = detector_cfg.get("drift_positions", drift_positions)
             if positions is None:
                 raise ValueError("oracle detector needs drift_positions (from config or dataset)")
-            detector = OracleDriftDetector(drift_positions=positions, delay=detector_cfg.get("delay", 0))
+            detector = OracleDriftDetector(
+                drift_positions=positions, delay=detector_cfg.get("delay", 0)
+            )
         else:
             raise ValueError(f"Unsupported drift detector: {name!r}")
 

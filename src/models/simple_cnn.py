@@ -194,7 +194,9 @@ class SimpleCNN(L.LightningModule, BasePredictor):
             }
         return optimizer
 
-    def predict_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> dict[str, Any]:
+    def predict_step(
+        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Any]:
         x, _ = self._unpack_batch(batch) if self._has_targets(batch) else (batch, None)
         return self.predict_step_online(x)
 
@@ -285,7 +287,9 @@ class SimpleCNN(L.LightningModule, BasePredictor):
             return x_tensor, y_tensor
         ax, ay = self._anchor
         picks = torch.as_tensor(
-            self._online_rng.choice(len(ay), size=min(self.online_anchor_batch, len(ay)), replace=False),
+            self._online_rng.choice(
+                len(ay), size=min(self.online_anchor_batch, len(ay)), replace=False
+            ),
             device=ax.device,
         )
         return torch.cat([x_tensor, ax[picks]], dim=0), torch.cat([y_tensor, ay[picks]], dim=0)

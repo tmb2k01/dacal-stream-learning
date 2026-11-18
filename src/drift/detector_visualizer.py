@@ -192,13 +192,21 @@ class DetectorVisualizer:
         ax.plot(steps, scores, color="#4C72B0", linewidth=1.0, label="Score", zorder=2)
 
         # Shade warmup region when detector provides a warmup_size; otherwise fall back to leading NaNs.
-        warmup_size = getattr(self.detector, "warmup_size", None) if self.detector is not None else None
+        warmup_size = (
+            getattr(self.detector, "warmup_size", None) if self.detector is not None else None
+        )
         if isinstance(warmup_size, int) and 0 < warmup_size <= len(steps):
             ax.axvspan(steps[0], steps[warmup_size - 1], color="#DDDDDD", alpha=0.5, label="Warmup")
         else:
             first_finite = np.where(~np.isnan(scores))[0]
             if first_finite.size and int(first_finite[0]) > 0:
-                ax.axvspan(steps[0], steps[int(first_finite[0])], color="#DDDDDD", alpha=0.5, label="Warmup")
+                ax.axvspan(
+                    steps[0],
+                    steps[int(first_finite[0])],
+                    color="#DDDDDD",
+                    alpha=0.5,
+                    label="Warmup",
+                )
 
         # Threshold line from detector attributes
         threshold = self._read_threshold()
@@ -308,7 +316,9 @@ class DetectorVisualizer:
         valid = ~np.isnan(error)
         rolled = np.full_like(error, np.nan)
         if valid.sum() >= w:
-            rolled_vals = np.convolve(error[valid].astype(float), kernel.astype(float), mode="valid")
+            rolled_vals = np.convolve(
+                error[valid].astype(float), kernel.astype(float), mode="valid"
+            )
             rolled_idx = np.where(valid)[0][w - 1 :]
             rolled[rolled_idx] = rolled_vals
 
@@ -358,7 +368,3 @@ if __name__ == "__main__":
     fig.savefig("detector_diagnostics_demo.png", dpi=150, bbox_inches="tight")
     print("Saved → detector_diagnostics_demo.png")
     plt.show()
-
-
-
-

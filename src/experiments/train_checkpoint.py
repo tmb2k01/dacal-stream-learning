@@ -30,13 +30,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--force", action="store_true", help="retrain even if the checkpoint exists")
+    parser.add_argument(
+        "--force", action="store_true", help="retrain even if the checkpoint exists"
+    )
     args = parser.parse_args()
 
     cfg = {"model": model_config(epochs=args.epochs, seed=args.seed, force_retrain=args.force)}
     start = time.perf_counter()
     model = ModelFactory.create(cfg)
-    print(f"checkpoint ready in {time.perf_counter() - start:.0f}s: {cfg['model']['checkpoint_path']}")
+    print(
+        f"checkpoint ready in {time.perf_counter() - start:.0f}s: {cfg['model']['checkpoint_path']}"
+    )
     print(f"augmentation: {model.augmentation}")
     print(f"clean CIFAR-10 test accuracy: {clean_test_accuracy(model):.4f}")
     print(f"device: {next(model.parameters()).device}, torch {torch.__version__}")

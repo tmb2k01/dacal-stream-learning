@@ -4,7 +4,6 @@ Each class adapts a ``river.drift`` algorithm to the ``BaseDriftDetector``
 interface (``update(value) -> DriftEvent``, ``reset()``).
 """
 
-
 from river.drift import ADWIN, PageHinkley
 from river.drift.binary import DDM
 
@@ -29,6 +28,7 @@ class ADWINDetector(BaseDriftDetector):
             raise ValueError("delta must be in (0, 1)")
         self.delta = float(delta)
         self._inner = ADWIN(delta=self.delta)
+
     def update(self, value: float) -> DriftEvent:
         self._inner.update(float(value))
         drift = bool(self._inner.drift_detected)
@@ -169,6 +169,3 @@ class PageHinkleyDetector(BaseDriftDetector):
             alpha=self.alpha,
             mode=self.mode,
         )
-
-
-

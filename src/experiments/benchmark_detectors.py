@@ -88,7 +88,9 @@ def summarize_records(
 ) -> dict[str, Any]:
     """Turn raw per-step records into the benchmark metrics."""
     n = len(records)
-    correct = np.array([float(r["correct"]) if r["correct"] is not None else np.nan for r in records])
+    correct = np.array(
+        [float(r["correct"]) if r["correct"] is not None else np.nan for r in records]
+    )
     covered = np.array([_covered(r) for r in records])
     sizes = np.array([_set_size(r) for r in records])
     pre_end = drift_positions[0]
@@ -136,14 +138,18 @@ def summarize_records(
 def step_series(records: list[dict[str, Any]]) -> dict[str, np.ndarray]:
     """Per-step arrays used by the trajectory figures."""
     return {
-        "correct": np.array([float(r["correct"]) if r["correct"] is not None else np.nan for r in records]),
+        "correct": np.array(
+            [float(r["correct"]) if r["correct"] is not None else np.nan for r in records]
+        ),
         "covered": np.array([_covered(r) for r in records]),
         "set_size": np.array([_set_size(r) for r in records]),
         "queried": np.array([float(r["queried"]) for r in records]),
     }
 
 
-def run_single_simulation(cfg: dict[str, Any], segment_len: int = 250) -> tuple[dict[str, Any], dict]:
+def run_single_simulation(
+    cfg: dict[str, Any], segment_len: int = 250
+) -> tuple[dict[str, Any], dict]:
     start = time.perf_counter()
     engine, dataset = build_simulation(cfg)
     result = engine.run(dataset)
@@ -176,20 +182,27 @@ def run_benchmark(
         print(f"-- seed {seed}: stream uses test images [{first_start}, {first_start + 3 * count})")
         for item in configurations(seed):
             cfg = build_run_config(
-                item, seed, first_start, count, severity,
-                online=online, detector_sees_all_labels=detector_sees_all_labels,
+                item,
+                seed,
+                first_start,
+                count,
+                severity,
+                online=online,
+                detector_sees_all_labels=detector_sees_all_labels,
             )
             metrics, series = run_single_simulation(cfg, segment_len=count)
             for key, values in series.items():
                 all_series[f"{item['name']}|{seed}|{key}"] = values
-            all_series[f"{item['name']}|{seed}|alarms"] = np.array(metrics["alarm_steps"], dtype=int)
+            all_series[f"{item['name']}|{seed}|alarms"] = np.array(
+                metrics["alarm_steps"], dtype=int
+            )
             metrics.update(
                 {
                     "solution": item["name"],
                     "group": item["group"],
-                    "type": "Supervised" if item["supervised"] else (
-                        "Privileged" if item["signal"] == "step" else "Label-Free"
-                    ),
+                    "type": "Supervised"
+                    if item["supervised"]
+                    else ("Privileged" if item["signal"] == "step" else "Label-Free"),
                     "signal": item["signal"],
                     "seed": seed,
                 }
@@ -203,8 +216,12 @@ def run_benchmark(
 
     raw = pd.DataFrame(rows)
     agg = aggregate(raw)
-    raw.drop(columns=["alarm_steps"]).to_csv(out / f"{FILE_PREFIX}_runs_raw{suffix}.csv", index=False)
-    raw[["solution", "seed", "alarm_steps"]].to_json(out / f"{FILE_PREFIX}_alarm_steps{suffix}.json", orient="records")
+    raw.drop(columns=["alarm_steps"]).to_csv(
+        out / f"{FILE_PREFIX}_runs_raw{suffix}.csv", index=False
+    )
+    raw[["solution", "seed", "alarm_steps"]].to_json(
+        out / f"{FILE_PREFIX}_alarm_steps{suffix}.json", orient="records"
+    )
     agg.to_csv(out / f"{FILE_PREFIX}_benchmark{suffix}.csv", index=False)
     np.savez_compressed(out / f"{FILE_PREFIX}_series{suffix}.npz", **all_series)
     print(f"\nSaved {out / f'{FILE_PREFIX}_benchmark{suffix}.csv'}")
@@ -212,10 +229,24 @@ def run_benchmark(
 
 
 METRICS = [
-    "acc_overall", "acc_pre", "acc_post", "acc_clean", "acc_gaussian", "acc_shot",
-    "cov_overall", "cov_pre", "cov_post", "set_size", "set_size_post",
-    "total_alarms", "false_alarms", "drifts_detected", "detection_rate", "mean_delay",
-    "labels_used", "online_updates",
+    "acc_overall",
+    "acc_pre",
+    "acc_post",
+    "acc_clean",
+    "acc_gaussian",
+    "acc_shot",
+    "cov_overall",
+    "cov_pre",
+    "cov_post",
+    "set_size",
+    "set_size_post",
+    "total_alarms",
+    "false_alarms",
+    "drifts_detected",
+    "detection_rate",
+    "mean_delay",
+    "labels_used",
+    "online_updates",
 ]
 
 
@@ -233,7 +264,9 @@ def aggregate(raw: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--seeds", type=int, default=5)
     parser.add_argument("--count", type=int, default=250, help="images per stream segment")
     parser.add_argument("--severity", type=int, default=1)

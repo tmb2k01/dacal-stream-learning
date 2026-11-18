@@ -109,7 +109,9 @@ def test_cusum_detector_with_reference():
 
 
 def test_mmd_detector_with_reference():
-    detector = MMDDriftDetector(window_size=30, test_every=10, alpha=0.05, n_permutations=50, seed=42)
+    detector = MMDDriftDetector(
+        window_size=30, test_every=10, alpha=0.05, n_permutations=50, seed=42
+    )
     rng = np.random.default_rng(42)
     ref = rng.normal(loc=0.0, scale=1.0, size=(100, 5))
     detector.fit_reference(ref)
@@ -144,9 +146,6 @@ def test_engine_routes_signals_to_detector():
     oracle = OracleDriftDetector(drift_positions=[5], delay=0)
     engine = StreamSimulationEngine(predictor=DummyPredictor(), drift_detector=oracle)
 
-    records = [
-        engine.step({"x": np.zeros(3), "y": 0})
-        for _ in range(10)
-    ]
+    records = [engine.step({"x": np.zeros(3), "y": 0}) for _ in range(10)]
     drift_steps = [r["step"] for r in records if r["drift_event"].drift]
     assert drift_steps == [5]

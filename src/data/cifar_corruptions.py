@@ -43,8 +43,7 @@ def corrupt_images(
     """Corrupt a ``(N, 32, 32, 3)`` uint8 batch; returns uint8 of the same shape."""
     if corruption not in SEVERITY_PARAMS:
         raise ValueError(
-            f"Cannot synthesize corruption {corruption!r}; "
-            f"supported: {sorted(SEVERITY_PARAMS)}"
+            f"Cannot synthesize corruption {corruption!r}; supported: {sorted(SEVERITY_PARAMS)}"
         )
     if not 1 <= severity <= 5:
         raise ValueError("severity must be between 1 and 5")
@@ -78,16 +77,19 @@ def corrupt_images(
         out = hsv_to_rgb(hsv)
     elif corruption == "pixelate":
         size = int(32 * c)
-        out = np.stack(
-            [
-                np.asarray(
-                    Image.fromarray(img)
-                    .resize((size, size), Image.Resampling.BOX)
-                    .resize((32, 32), Image.Resampling.BOX)
-                )
-                for img in np.asarray(images, dtype=np.uint8)
-            ]
-        ).astype(np.float64) / 255.0
+        out = (
+            np.stack(
+                [
+                    np.asarray(
+                        Image.fromarray(img)
+                        .resize((size, size), Image.Resampling.BOX)
+                        .resize((32, 32), Image.Resampling.BOX)
+                    )
+                    for img in np.asarray(images, dtype=np.uint8)
+                ]
+            ).astype(np.float64)
+            / 255.0
+        )
     else:  # jpeg_compression
         decoded = []
         for img in np.asarray(images, dtype=np.uint8):

@@ -47,7 +47,9 @@ GRID_STAGE2 = {
 GRIDS = {"stage1": GRID_STAGE1, "stage2": GRID_STAGE2}
 
 
-def run_variant(online: dict, rate: float, window_starts=VAL_WINDOW_STARTS, seeds=POLICY_SEEDS) -> dict:
+def run_variant(
+    online: dict, rate: float, window_starts=VAL_WINDOW_STARTS, seeds=POLICY_SEEDS
+) -> dict:
     """Mean accuracy over validation windows x policy seeds for one online-update variant."""
     suite = configurations(0, rate=max(rate, 0.01))
     name = "Baseline + AL" if rate > 0 else "Lower Baseline"
@@ -65,7 +67,11 @@ def run_variant(online: dict, rate: float, window_starts=VAL_WINDOW_STARTS, seed
             accs.append(correct.mean())
             clean.append(correct[:250].mean())
             post.append(correct[250:].mean())
-    return {"acc": float(np.mean(accs)), "acc_clean": float(np.mean(clean)), "acc_post": float(np.mean(post))}
+    return {
+        "acc": float(np.mean(accs)),
+        "acc_clean": float(np.mean(clean)),
+        "acc_post": float(np.mean(post)),
+    }
 
 
 def main() -> None:
@@ -81,7 +87,9 @@ def main() -> None:
 
     rows = []
     t0 = time.perf_counter()
-    for (opt, lr), dropout, replay, steps, trainable, anchor in itertools.product(*GRIDS[args.stage].values()):
+    for (opt, lr), dropout, replay, steps, trainable, anchor in itertools.product(
+        *GRIDS[args.stage].values()
+    ):
         online = {
             "online_trainable": trainable,
             "online_anchor_batch": anchor,

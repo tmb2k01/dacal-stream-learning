@@ -91,7 +91,12 @@ def _style_axis(ax, drift_positions: list[int], n_steps: int) -> None:
 
 
 def plot_trajectories(
-    series: dict, names: list[str], title: str, output_path: Path, acc_window: int = 50, cov_window: int = 100
+    series: dict,
+    names: list[str],
+    title: str,
+    output_path: Path,
+    acc_window: int = 50,
+    cov_window: int = 100,
 ) -> None:
     if len(names) > MAX_CURVES_PER_FIGURE:
         raise ValueError(f"at most {MAX_CURVES_PER_FIGURE} curves per figure, got {len(names)}")
@@ -112,13 +117,23 @@ def plot_trajectories(
     panels = [
         (axes[0], "correct", acc_window, f"Rolling accuracy (window {acc_window})", (0.3, 1.0)),
         (axes[1], "covered", cov_window, f"Rolling coverage (window {cov_window})", (0.3, 1.02)),
-        (axes[2], "set_size", cov_window, f"Rolling prediction-set size (window {cov_window})", None),
+        (
+            axes[2],
+            "set_size",
+            cov_window,
+            f"Rolling prediction-set size (window {cov_window})",
+            None,
+        ),
     ]
     for ax, field, window, label, ylim in panels:
         for name in names:
             ax.plot(
-                x, _mean_rolling(series[name], field, window), label=short_name(name),
-                color=COLORS[name], linewidth=2.0, zorder=3,
+                x,
+                _mean_rolling(series[name], field, window),
+                label=short_name(name),
+                color=COLORS[name],
+                linewidth=2.0,
+                zorder=3,
             )
         ax.set_ylabel(label, fontsize=10)
         if ylim:
@@ -129,18 +144,27 @@ def plot_trajectories(
 
     for i, (seg_name, _) in enumerate(SEGMENT_PLAN):
         left = ([0, *drift_positions])[i]
-        axes[0].text(left + 5, 0.995, seg_name, fontsize=9, color="#222222", va="top", fontweight="bold")
+        axes[0].text(
+            left + 5, 0.995, seg_name, fontsize=9, color="#222222", va="top", fontweight="bold"
+        )
 
     # Alarm timeline: one row per detector, one dot per alarm, sub-rows for seeds.
     ax_t = axes[3]
-    detectors = [n for n in names if any(len(r["alarms"]) for r in series[n].values()) or "Oracle" in n]
+    detectors = [
+        n for n in names if any(len(r["alarms"]) for r in series[n].values()) or "Oracle" in n
+    ]
     detectors = [n for n in names if n in detectors]
     for row, name in enumerate(detectors):
         for k, (_, run) in enumerate(sorted(series[name].items())):
             offset = (k - (n_seeds - 1) / 2) * 0.12
             ax_t.scatter(
-                run["alarms"], np.full(len(run["alarms"]), row + offset), s=18,
-                color=COLORS[name], edgecolors="black", linewidths=0.3, zorder=4,
+                run["alarms"],
+                np.full(len(run["alarms"]), row + offset),
+                s=18,
+                color=COLORS[name],
+                edgecolors="black",
+                linewidths=0.3,
+                zorder=4,
             )
     ax_t.set_yticks(range(len(detectors)))
     ax_t.set_yticklabels([short_name(n) for n in detectors], fontsize=9)
@@ -171,8 +195,16 @@ def plot_summary(agg: pd.DataFrame, names: list[str], title: str, output_path: P
     def bars(ax, col, xlabel, xlim=None, fmt="{:.3f}", ref=None):
         vals = df[col].to_numpy(dtype=float)
         errs = df[f"{col}_std"].to_numpy(dtype=float)
-        ax.barh(y, np.nan_to_num(vals), xerr=np.nan_to_num(errs), color=colors, edgecolor="black",
-                linewidth=0.6, capsize=3, zorder=3)
+        ax.barh(
+            y,
+            np.nan_to_num(vals),
+            xerr=np.nan_to_num(errs),
+            color=colors,
+            edgecolor="black",
+            linewidth=0.6,
+            capsize=3,
+            zorder=3,
+        )
         ax.set_yticks(y)
         ax.set_yticklabels(labels, fontsize=9)
         ax.set_xlabel(xlabel, fontsize=10, fontweight="bold")
@@ -190,15 +222,25 @@ def plot_summary(agg: pd.DataFrame, names: list[str], title: str, output_path: P
     lo = max(0.0, float(np.nanmin(df["acc_post"])) - 0.12)
     bars(axes[0, 0], "acc_post", "Accuracy on corrupted segments (higher is better)", (lo, 1.0))
     lo_c = max(0.0, float(np.nanmin(df["cov_post"])) - 0.12)
-    bars(axes[0, 1], "cov_post", "Coverage on corrupted segments (target 0.90)", (lo_c, 1.02), ref=TARGET_COVERAGE)
+    bars(
+        axes[0, 1],
+        "cov_post",
+        "Coverage on corrupted segments (target 0.90)",
+        (lo_c, 1.02),
+        ref=TARGET_COVERAGE,
+    )
 
     # Bottom panels: extra facts go into two-line tick labels so they never collide with bars.
     ax = axes[1, 0]
     bars(ax, "mean_delay", "Mean detection delay in steps (lower is better)", fmt="{:.0f}")
     ax.set_yticklabels(
         [
-            f"{lab}\n" + ("no detector" if df.loc[n, "signal"] == "none"
-                          else f"found {df.loc[n, 'detection_rate'] * 100:.0f}% of drifts")
+            f"{lab}\n"
+            + (
+                "no detector"
+                if df.loc[n, "signal"] == "none"
+                else f"found {df.loc[n, 'detection_rate'] * 100:.0f}% of drifts"
+            )
             for lab, n in zip(labels, names, strict=True)
         ],
         fontsize=8.5,
@@ -233,10 +275,18 @@ def main() -> None:
     agg = pd.read_csv(bench / f"{FILE_PREFIX}_benchmark{args.suffix}.csv")
 
     for group, title, names in FIGURE_GROUPS:
-        plot_trajectories(series, names, f"CIFAR-10-C stream: {title}",
-                          plots / f"{FILE_PREFIX}_trajectories_{group}{args.suffix}.png")
-        plot_summary(agg, names, f"CIFAR-10-C summary: {title}",
-                     plots / f"{FILE_PREFIX}_summary_{group}{args.suffix}.png")
+        plot_trajectories(
+            series,
+            names,
+            f"CIFAR-10-C stream: {title}",
+            plots / f"{FILE_PREFIX}_trajectories_{group}{args.suffix}.png",
+        )
+        plot_summary(
+            agg,
+            names,
+            f"CIFAR-10-C summary: {title}",
+            plots / f"{FILE_PREFIX}_summary_{group}{args.suffix}.png",
+        )
 
 
 if __name__ == "__main__":
