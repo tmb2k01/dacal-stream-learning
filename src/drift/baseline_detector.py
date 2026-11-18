@@ -67,4 +67,3 @@ class RunningStatsBaselineDetector(BaseDriftDetector):
         self._baseline_mean = mean(window)
         self._baseline_std = pstdev(window)
         return DriftEvent(drift=False, warning=False, score=0.0)
-
