@@ -153,7 +153,8 @@ class WindowedTwoSampleDetector(BaseDriftDetector):
         self._last_score = float(score)
         if drift:
             self._on_drift(window)
-        return DriftEvent(drift=bool(drift), warning=False, score=self._last_score)
+            self.reset()
+        return DriftEvent(drift=bool(drift), warning=False, score=float(score))
 
     def _test(self, window: np.ndarray) -> tuple[float, bool]:
         raise NotImplementedError

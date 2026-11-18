@@ -152,7 +152,7 @@ class StreamSimulationEngine:
             prediction=prediction,
             conformal_output=conformal_output,
             y_true=y_true,
-            label_available=y_observed is not None,
+            label_available=y_observed is not None or self.active_policy is None,
         )
         if drift_event is not None and drift_event.drift:
             self._handle_drift()
@@ -229,8 +229,6 @@ class StreamSimulationEngine:
         if self.calibrator is not None:
             self.calibrator.reset()
         self.predictor.reset_adaptation_state()
-        if self.drift_detector is not None:
-            self.drift_detector.reset()
 
     @staticmethod
     def _first_value(value: Any) -> Any:
