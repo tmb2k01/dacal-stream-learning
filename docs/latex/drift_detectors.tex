@@ -12,6 +12,18 @@ Consider a labeled stream $\{(x_t,y_t)\}_{t\geq1}$ and an online predictor that 
  \label{eq:error-signal}
 \end{equation}
 where $\mathbb{I}\{\cdot\}$ is the indicator function. Each configured detector receives $e_t$ after prediction and after any optional model update for the item. Thus, detector alarms should be interpreted as evidence of a change in predictive error, not directly as evidence of covariate shift, label shift, or degradation of conformal coverage. The generic detectors can accept real-valued values, but the engine currently supplies only the binary sequence in Equation~\eqref{eq:error-signal}.
+In implementation, the effective detector label depends on the learning protocol:
+\begin{equation}
+ y_t^{\mathrm{det}} =
+ \begin{cases}
+ y_t^{\mathrm{obs}}, & \text{if an active-learning policy is enabled,}\\
+ y_t, & \text{otherwise,}
+ \end{cases}
+ \qquad
+ e_t = \mathbb{I}\{\hat y_t \neq y_t^{\mathrm{det}}\}.
+ \label{eq:error-signal-protocol}
+\end{equation}
+Hence with active learning, detector updates occur only on queried labels; with fully labeled streaming (no active policy), updates occur for each labeled item.
 
 Every detector implements an \texttt{update(value)} operation and returns an event
 \begin{equation}
@@ -59,7 +71,7 @@ Parameter & Default & Constraint & Meaning \\
 
 ADWIN is an adaptive-window change detector for the mean of a real-valued stream. Its window length changes online: when two subwindows have means that differ by more than permitted by its statistical bound, the older portion is discarded and a drift event is raised~\cite{bifet2007adwin}. In this project, the River implementation is wrapped with a single confidence parameter $\delta$. Smaller values of $\delta$ make the detector less sensitive. Although ADWIN is general-purpose, its input here is the binary error sequence, so mean changes correspond to changes in error rate.
 
-The wrapper emits no warnings. Its event score is the current ADWIN window variance when the window is nonempty, and zero otherwise. This score is a diagnostic output, not ADWIN's decision statistic. After a detected change, the wrapper constructs a fresh ADWIN instance using the same $\delta$; the engine subsequently also invokes the detector reset as part of global drift handling.
+The wrapper emits no warnings. Its event score is the current ADWIN window variance when the window is nonempty, and zero otherwise. This score is a diagnostic output, not ADWIN's decision statistic. After a detected change, the wrapper constructs a fresh ADWIN instance using the same $\delta$.
 
 \begin{table}[htbp]
 \centering
@@ -120,19 +132,60 @@ Parameter & Default & Constraint & Meaning \\
 \end{tabular}
 \end{table}
 
-\section{Alarm handling and experimental implications}
+\section{System-level wiring in the simulation engine}
+\label{sec:detector-wiring}
+
+Detector integration follows a simple contract pipeline:
+\begin{enumerate}
+\item The factory instantiates one detector from the \texttt{drift\_detector} block.
+\item The engine computes correctness from point predictions and protocol-specific labels (Equation~\eqref{eq:error-signal-protocol}).
+\item The detector receives only the binary error $e_t\in\{0,1\}$ and returns $\mathcal{E}_t=(d_t,w_t,s_t)$.
+\item If $d_t=1$, the engine enters drift mode and triggers adaptation hooks.
+\end{enumerate}
+
+The factory supports \texttt{baseline} (alias \texttt{running\_stats\_baseline}), \texttt{adwin}, \texttt{ddm}, and \texttt{page\_hinkley}. Unknown names raise an error. Missing, disabled, or \texttt{none} detector configurations disable detection.
+
+\section{Alarm handling semantics}
 \label{sec:alarm-handling}
 
-When $d_t=1$, the stream engine sets a persistent drift-mode flag, resets the conformal calibrator when present, calls the predictor's adaptation-state reset operation, and resets the configured detector. Warnings have no direct adaptation effect. Since each detector wrapper also resets itself on its own drift event, the subsequent engine reset is redundant but leaves the post-alarm state unambiguous. The drift-mode flag is not reverted by the detector code; experiments that use it in an active-learning policy should specify any additional policy-level recovery rule.
+When $d_t=1$, the engine sets \texttt{drift\_mode=True}, resets the conformal calibrator when present, and calls the predictor adaptation reset hook. Warnings have no direct adaptation effect.
 
-A central limitation is label availability. The detector signal uses the stream item's ground-truth label whenever it is present, irrespective of whether the active-learning policy queried that label. This is appropriate for fully labeled simulation and retrospective benchmarking, but it does not represent a deployment setting in which labels are delayed, expensive, or unavailable. For a label-budgeted study, the detector input should instead be restricted to queried labels or replaced by an unlabeled signal (for example, confidence, nonconformity, or feature-distribution statistics). Detection delay and false-alarm measurements must be reported under the same label protocol used to generate the detector signal.
+Detector reset ownership is detector-side: all provided detectors reset their own internal state when their \texttt{update()} call emits drift. The engine does \emph{not} additionally reset detector state. This keeps post-alarm behavior explicit and avoids double-reset side effects.
 
-The fixed-baseline detector is the enabled detector in the supplied synthetic-stream configuration, with the defaults in Table~\ref{tab:baseline-parameters}. ADWIN, DDM, and Page--Hinkley are selectable through the detector factory and use the defaults documented above unless explicitly configured. All River-backed results should record River version 0.23.0, because detector behavior is delegated to that library implementation.
+The drift-mode flag is persistent at engine state level and is not automatically cleared by detector logic. If an active-learning policy consumes this flag, any recovery policy (for example, decaying urgency or manual reset) must be specified at policy level.
 
-\section{Configuration and reproducibility}
-\label{sec:detector-reproducibility}
+\section{Detector visualiser}
+\label{sec:detector-visualiser}
 
-A detector is enabled through a \texttt{drift\_detector} configuration block. The supported names are \texttt{baseline} (or \texttt{running\_stats\_baseline}), \texttt{adwin}, \texttt{ddm}, and \texttt{page\_hinkley}. Missing, disabled, or \texttt{none} detector configurations disable drift detection. A reproducible experiment should record the full detector block, model-update order, label protocol, random seed, and alarm evaluation criterion. In particular, diagnostic scores should be visualized only within a detector family: the baseline score is a z-score, ADWIN reports a window variance, and DDM/Page--Hinkley report the observed binary input.
+The framework includes a reusable visualiser for detector diagnostics. It supports two entry points:
+\begin{itemize}
+\item \texttt{plot(records)} for end-to-end engine outputs (\texttt{SimulationResult.records}),
+\item \texttt{plot\_events(events, steps)} for direct replay or unit-level analyses.
+\end{itemize}
+
+The default figure is multi-panel and intentionally separates detection logic from downstream model metrics:
+\begin{enumerate}
+\item \textbf{Score timeline:} detector score $s_t$ with warning/drift markers; for baseline detectors, the standardized threshold is overlaid.
+\item \textbf{Event flags:} warning and drift impulses over stream time.
+\item \textbf{Cumulative drifts:} monotone count of detected drifts.
+\item \textbf{Rolling error rate (optional):} shown when record-level correctness is available.
+\end{enumerate}
+
+Warm-up is visualized either from detector metadata (for example, \texttt{warmup\_size}) or inferred from leading missing-score intervals. This distinction is important for comparing fixed warm-up detectors against adaptive-window detectors that begin producing finite diagnostics immediately.
+
+Runtime visualisation is configuration-gated through \texttt{drift\_detector.visualizer}. If enabled while no detector is active, the entry point raises a configuration error to prevent silent no-op plotting.
+
+\section{Interpretation and reporting guidance}
+\label{sec:detector-reporting}
+
+The detector score channel is heterogeneous by design:
+\begin{itemize}
+\item baseline detector: standardized deviation (z-score style),
+\item ADWIN: current adaptive-window variance,
+\item DDM: thresholded binary input (0/1),
+\item Page--Hinkley: raw input value.
+\end{itemize}
+Therefore score magnitudes are interpretable \emph{within} a detector family but not across families.
 
 \begin{thebibliography}{9}
 
