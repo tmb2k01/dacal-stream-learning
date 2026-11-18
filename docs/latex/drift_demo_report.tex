@@ -1,0 +1,396 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\graphicspath{{../figures/}}
+
+\title{Drift Detection under Sudden and Gradual Noise Drift:\\
+Lower and Upper Baselines on a CIFAR-10-C Stream}
+\author{dacal-stream-learning}
+\date{\today}
+
+\newcommand{\acc}{\mathrm{Acc}}
+\newcommand{\gap}{\mathrm{GC}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We compare twelve adaptation strategies for a conformal, actively-labelled stream classifier
+under two kinds of covariate drift (a \emph{sudden} jump and a \emph{gradual}, progressively worsening ramp)
+and four noise types (Gaussian, shot, impulse, speckle). Two reference points bracket the field:
+a \emph{lower baseline} that never adapts, and an \emph{upper baseline} that is told about every shift and
+then receives every label until the next one. Averaged over eight scenarios and three seeds, the frozen
+model reaches $0.405$ accuracy and $0.53$ conformal coverage after the first shift; learning at every shift reaches
+$0.546$ and $0.91$. Practical detectors close between $40\%$ and $88\%$ of this gap. Adaptive MMD is the best
+detector (88\%) and uses 357 labels, whereas error-based detectors are limited by label scarcity.
+Sudden drift is more damaging than gradual drift for a non-adapting model ($0.33$ vs.\ $0.48$ accuracy), and the ranking
+of the methods is stable across noise types. We describe the protocol, report all numbers, and discuss
+the limits of the study.
+\end{abstract}
+
+\tableofcontents
+
+%--------------------------------------------------------------------------------------------------
+\section{Motivation and questions}
+\label{sec:intro}
+
+A deployed classifier sees a stream whose input distribution may change. Two questions drive this study.
+First, \emph{how much} is lost when nothing adapts, and \emph{how much} could be recovered if adaptation were
+perfectly informed? These two numbers define the \emph{lower} and \emph{upper baseline} and give an absolute scale
+on which every drift detector can be placed. Second, \emph{does the way the drift arrives matter?}
+A sudden jump and a slow ramp that ends at the same severity create different detection problems:
+the former has a clear change point, the latter a sequence of small steps that may stay below a
+detector's sensitivity.
+
+We answer these with one reproducible experiment (\texttt{python -m experiments.drift\_demo}) covering
+the following axes:
+\begin{itemize}[nosep]
+ \item \textbf{Drift kind:} sudden vs.\ gradual.
+ \item \textbf{Noise type:} Gaussian, shot, impulse, speckle noise.
+ \item \textbf{Algorithm:} two baselines, an active-learning-only control, an oracle, four error-based (supervised) detectors and four label-free detectors.
+\end{itemize}
+
+%--------------------------------------------------------------------------------------------------
+\section{Experimental setup}
+\label{sec:setup}
+
+\subsection{Data and model}
+
+The stream is built from CIFAR-10 test images and their CIFAR-10-C corruptions. File $j$ of a corruption is the corrupted version of
+test image $j$; the underlying images of a stream are required to be pairwise disjoint (\texttt{enforce\_disjoint}),
+so no image is shown twice. Seed $k$ uses the window of test images $[800k,\,800(k+1))$, hence seeds do not share images.
+The classifier is a small CNN (three convolution--batch-norm blocks, two dense layers) trained for
+20 epochs on 45\,000 CIFAR-10 \emph{training} images with crop, flip and colour-jitter augmentation (no noise or blur augmentation).
+5\,000 further training images are held out for conformal calibration. The test split is never used for training.
+There is a single checkpoint, shared by all seeds and algorithms.
+
+\subsection{Scenarios}
+
+Every stream has 800 steps: 300 clean steps followed by 500 drifted steps.
+\begin{description}[nosep]
+ \item[Sudden] one jump at $t=300$ to severity 5 of the noise type.
+ \item[Gradual] the same noise with severity $1,2,3,4,5$ for 100 steps each. Each severity change is a ground-truth shift point (shifts at $t=300,400,500,600,700$).
+\end{description}
+Both kinds have identical length and end at the same severity, so they differ only in the way the drift arrives.
+Crossing the four noise types with the two kinds gives eight scenarios; each is run with three seeds, giving 24 streams and
+$24\times12=288$ simulations.
+
+\subsection{Conformal prediction and active-labelling protocol}
+
+For every step the model produces class probabilities and a conformal prediction set (LAC non-conformity score,
+target miscoverage $\alpha=0.1$, i.e.\ target coverage $0.90$). The calibrator is initialised on the clean held-out
+calibration split and then uses a sliding window of 200 online scores (at least 20 before it adapts).
+
+Labels are only available through queries. In all configurations except the two baselines, a random policy
+reveals the true label with probability $5\%$ in normal operation and $80\%$ for 100 steps after a drift alarm (a ``burst'').
+Each revealed label causes exactly one online model update (Adam, learning rate $3\cdot10^{-4}$, only the two dense layers,
+dropout off; tuned on a separate validation pool in an earlier study) and one conformal recalibration step.
+An alarm resets the conformal window and the detector, but keeps the model weights. Detectors that consume the prediction error only see
+queried steps; label-free detectors see every step.
+
+\subsection{The two baselines}
+
+\paragraph{Lower baseline.} Frozen pretrained model, no labels, no detector, static conformal calibration on clean data.
+It measures the damage of the drift when nothing adapts.
+
+\paragraph{Upper baseline (learns at every shift).} An oracle raises an alarm exactly at each ground-truth shift (delay 0). After an alarm the burst lasts for
+the whole following segment and queries \emph{every} label ($100\%$), with no background labelling before the first shift.
+Each label causes one online update and one recalibration step. It therefore represents a learner that is perfectly informed
+about when to adapt and has unrestricted label access afterwards. It uses 499 labels in every scenario.
+Before the first shift it is identical to the lower baseline (accuracy $0.824$ in both).
+
+\subsection{Compared algorithms}
+
+Besides the baselines there are ten configurations, taken unchanged from the CIFAR-10-C benchmark of this repository:
+\begin{itemize}[nosep]
+ \item \textbf{AL only}: $5\%$ background labels, no detector, no bursts (the control that every detector must beat).
+ \item \textbf{Oracle (5\%/80\%)}: alarms at every ground-truth shift with the normal label protocol.
+ \item \textbf{Supervised detectors} (error signal, only on queried steps): fixed-baseline Z-score, ADWIN, DDM, Page--Hinkley.
+ \item \textbf{Label-free detectors}: KS test and CUSUM on the model's confidence, MMD on embeddings (RBF kernel, median bandwidth, PCA to 16 dimensions, permutation threshold), and Adaptive MMD, which rebuilds its reference window from the stream after each alarm.
+\end{itemize}
+
+\subsection{Metrics}
+
+All metrics are computed on the steps after the first shift ($t\geq300$) unless stated otherwise, per run, then averaged over seeds and scenarios.
+\begin{itemize}[nosep]
+ \item $\acc$: accuracy of the point prediction. \emph{Coverage}: share of steps whose prediction set contains the true class (target $0.90$). \emph{Set size}: mean number of classes in the set (smaller is more informative).
+ \item \emph{Alarms}, \emph{false alarms} (alarms before $t=300$), \emph{detected} (share of runs with an alarm at or after $t=300$), \emph{delay} (steps from $t=300$ to the first alarm; only for runs that alarmed).
+ \item \emph{Labels}: number of queried labels out of 800.
+ \item \emph{Gap closed}, which places an algorithm $a$ on the scale between the two baselines for a scenario:
+ \begin{equation}
+ \gap(a)=\frac{\acc(a)-\acc(\text{lower})}{\acc(\text{upper})-\acc(\text{lower})}.
+ \label{eq:gap}
+ \end{equation}
+ It is $0$ for the lower and $1$ for the upper baseline and it can exceed $1$ when an algorithm beats the upper baseline.
+\end{itemize}
+
+%--------------------------------------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+
+\subsection{The baselines: cost of drift and value of learning}
+
+Before the first shift the clean accuracy is $0.824$ for the frozen model. The algorithms with background labelling are slightly lower ($0.801$--$0.808$), because 5\% of
+the steps update the dense layers with single samples, which costs about $1.7$ points on clean data.
+
+After the first shift the frozen model collapses (Table~\ref{tab:overall}): accuracy falls from $0.824$ to $0.405$ and conformal coverage to $0.53$, far below the $0.90$ target. The conformal guarantee is lost because
+the static calibration set no longer matches the stream. Sets are small ($1.58$ classes), i.e.\ the model is \emph{confidently wrong}.
+The upper baseline recovers $+14.1$ accuracy points ($0.546$) and restores coverage ($0.907$), but with larger sets ($3.94$ classes): after the shift the data is genuinely harder, and the
+recalibrated sets honestly reflect the uncertainty.
+
+\begin{table}[H]
+\centering
+\caption{Results after the first shift, mean over 8 scenarios and 3 seeds. Gap closed is Eq.~\eqref{eq:gap}; delay is over runs that alarmed.
+The alarm count of the oracle-type methods is 1 for sudden and 5 for gradual drift, mean $3$.}
+\label{tab:overall}
+\small
+\begin{tabular}{@{}lrrrrrrrrr@{}}
+\toprule
+Algorithm & Acc & Cov. & Set & Alarms & False & Detected & Delay & Labels & Gap \\
+\midrule
+Lower baseline (frozen) & 0.405 & 0.526 & 1.58 & 0.0 & 0.0 & 0\% & n/a & 0 & 0\% \\
+Upper baseline (every shift) & 0.546 & 0.907 & 3.94 & 3.0 & 0.0 & 100\% & 0 & 499 & 100\% \\
+\midrule
+AL only (no detector) & 0.464 & 0.858 & 4.98 & 0.0 & 0.0 & 0\% & n/a & 45 & 40\% \\
+Oracle (5\%/80\% labels) & 0.528 & 0.926 & 4.69 & 3.0 & 0.0 & 100\% & 0 & 313 & 90\% \\
+\midrule
+Z-Score (supervised) & 0.488 & 0.859 & 4.69 & 0.3 & 0.0 & 33\% & 121 & 75 & 57\% \\
+ADWIN (supervised) & 0.464 & 0.858 & 4.98 & 0.0 & 0.0 & 0\% & n/a & 45 & 40\% \\
+DDM (supervised) & 0.511 & 0.858 & 4.05 & 1.0 & 0.0 & 100\% & 154 & 124 & 71\% \\
+Page--Hinkley (supervised) & 0.477 & 0.823 & 4.19 & 2.4 & 0.0 & 79\% & 296 & 172 & 48\% \\
+\midrule
+KS test (confidence) & 0.516 & 0.800 & 3.35 & 9.2 & 0.0 & 100\% & 62 & 438 & 80\% \\
+CUSUM (confidence) & 0.509 & 0.743 & 2.68 & 13.3 & 0.3 & 100\% & 86 & 438 & 74\% \\
+MMD (embedding) & 0.521 & 0.822 & 3.56 & 11.7 & 2.0 & 100\% & 32 & 556 & 82\% \\
+Adaptive MMD & 0.529 & 0.875 & 3.95 & 3.9 & 0.7 & 100\% & 45 & 357 & 88\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{drift_demo_overview_baselines.png}
+\caption{Accuracy of the two baselines after the first shift, by noise type and drift kind.}
+\label{fig:baselines}
+\end{figure}
+
+Figure~\ref{fig:baselines} shows that the gap between the baselines is substantial for every noise type and both
+drift kinds ($0.10$ to $0.20$ accuracy points), so every scenario offers room for a detector to help.
+
+\subsection{Sudden vs.\ gradual drift}
+
+For a non-adapting model the sudden jump to severity 5 is clearly worse than the ramp: $0.326$ vs.\ $0.484$ accuracy
+and $0.45$ vs.\ $0.60$ coverage after the first shift. This is simply because the ramp spends most of its time at lower severities: the average severity of the post-shift steps
+is $3$ for the ramp and $5$ for the jump.
+The upper baseline gains $+16.4$ points under sudden and $+11.7$ under gradual drift (Tables~\ref{tab:sudden} and~\ref{tab:gradual}).
+
+The two kinds also change the relative merit of the algorithms:
+\begin{itemize}
+ \item \textbf{Oracle label cost.} After a sudden shift the oracle's 100-step burst covers only a fifth of the 500 drifted steps; it uses 134 labels and still closes $81\%$ of the gap.
+ In gradual drift the five consecutive bursts together cover all 500 steps (492 labels, essentially the same label access as the upper baseline's 499), so it closes $99.8\%$ of the gap. The statement that ``the oracle matches the upper baseline under gradual drift'' (0.600 vs.\ 0.601) is therefore a statement about equal label access, not evidence that more labels do not help.
+ \item \textbf{Delay is larger for gradual drift.} The first small step (severity 1) is hard to see: DDM needs $220$ steps instead of $89$, KS $89$ instead of $34$, CUSUM $127$ instead of $44$, Page--Hinkley $352$ instead of $240$. MMD stays fast ($34$ vs.\ $31$ steps) and Adaptive MMD increases from $36$ to $54$.
+ \item \textbf{Detectors fire less often per shift in the ramp:} Adaptive MMD raises about 4 alarms in both kinds, i.e.\ roughly one per shift in the ramp, but only one genuine alarm is needed for the jump (the others are repeated alarms inside the same segment).
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Sudden drift (severity 5 jump), mean over 4 noise types and 3 seeds, after the first shift.}
+\label{tab:sudden}
+\small
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Algorithm & Acc & Cov. & Set & Alarms & Delay & Labels & Gap \\
+\midrule
+Lower baseline & 0.326 & 0.449 & 1.63 & 0.0 & n/a & 0 & 0\% \\
+Upper baseline & 0.490 & 0.913 & 4.58 & 1.0 & 0 & 499 & 100\% \\
+AL only & 0.397 & 0.848 & 5.97 & 0.0 & n/a & 45 & 43\% \\
+Oracle (5\%/80\%) & 0.457 & 0.951 & 6.04 & 1.0 & 0 & 134 & 81\% \\
+Z-Score & 0.417 & 0.850 & 5.67 & 0.3 & 121 & 75 & 55\% \\
+ADWIN & 0.397 & 0.848 & 5.97 & 0.0 & n/a & 45 & 43\% \\
+DDM & 0.449 & 0.861 & 5.07 & 1.0 & 89 & 133 & 74\% \\
+Page--Hinkley & 0.414 & 0.790 & 4.63 & 3.6 & 240 & 242 & 53\% \\
+KS test & 0.452 & 0.766 & 3.73 & 10.0 & 34 & 464 & 78\% \\
+CUSUM & 0.441 & 0.669 & 2.60 & 17.6 & 44 & 477 & 69\% \\
+MMD & 0.458 & 0.792 & 3.98 & 12.0 & 31 & 559 & 81\% \\
+Adaptive MMD & 0.465 & 0.864 & 4.58 & 4.0 & 36 & 356 & 84\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Gradual drift (severity ramp 1--5), mean over 4 noise types and 3 seeds, after the first shift.}
+\label{tab:gradual}
+\small
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Algorithm & Acc & Cov. & Set & Alarms & Delay & Labels & Gap \\
+\midrule
+Lower baseline & 0.484 & 0.603 & 1.52 & 0.0 & n/a & 0 & 0\% \\
+Upper baseline & 0.601 & 0.901 & 3.30 & 5.0 & 0 & 499 & 100\% \\
+AL only & 0.530 & 0.868 & 4.00 & 0.0 & n/a & 45 & 37\% \\
+Oracle (5\%/80\%) & 0.600 & 0.900 & 3.33 & 5.0 & 0 & 492 & 100\% \\
+Z-Score & 0.559 & 0.868 & 3.72 & 0.3 & 121 & 75 & 58\% \\
+ADWIN & 0.530 & 0.868 & 4.00 & 0.0 & n/a & 45 & 37\% \\
+DDM & 0.574 & 0.854 & 3.03 & 1.0 & 220 & 116 & 68\% \\
+Page--Hinkley & 0.541 & 0.857 & 3.75 & 1.2 & 352 & 101 & 43\% \\
+KS test & 0.579 & 0.834 & 2.97 & 8.4 & 89 & 413 & 82\% \\
+CUSUM & 0.576 & 0.816 & 2.76 & 9.1 & 127 & 399 & 79\% \\
+MMD & 0.584 & 0.852 & 3.15 & 11.4 & 34 & 553 & 84\% \\
+Adaptive MMD & 0.593 & 0.886 & 3.32 & 3.8 & 54 & 358 & 92\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Noise types}
+
+Table~\ref{tab:noise} gives post-shift accuracy for each noise type. The noise type changes the \emph{level} of every algorithm but hardly their \emph{order}.
+Under sudden drift, impulse noise is the hardest for the frozen model ($0.310$) and the most resistant to adaptation:
+the upper baseline reaches only $0.407$ (vs.\ $0.50$--$0.53$ for the other three types), so a cheap detector
+has little to gain there (gap closed by DDM: $29\%$ under gradual and $70\%$ under sudden impulse noise, with large variation between seeds). Under gradual drift impulse noise is the \emph{mildest} for the frozen model ($0.503$ vs.\ $0.414$ for Gaussian) but the upper baseline gains least ($0.546$).
+Gaussian noise is the most damaging in the ramp ($0.414$), shot and speckle noise are similar and lie in between. Speckle noise yields the highest post-shift accuracies for all adaptive methods in both kinds.
+
+Overall, the ranking Adaptive MMD $\approx$ oracle $>$ MMD $\gtrsim$ KS $>$ CUSUM $\approx$ DDM $>$ Z-score $>$ Page--Hinkley $>$ ADWIN $=$ AL only holds in nearly every noise column, with small local swaps (e.g.\ DDM exceeds KS on shot noise in the sudden case).
+
+\begin{table}[H]
+\centering
+\caption{Accuracy after the first shift by noise type (mean over 3 seeds).}
+\label{tab:noise}
+\small
+\begin{tabular}{@{}l rrrr c rrrr@{}}
+\toprule
+& \multicolumn{4}{c}{Sudden} & & \multicolumn{4}{c}{Gradual} \\
+\cmidrule(lr){2-5}\cmidrule(lr){7-10}
+Algorithm & Gauss. & Shot & Imp. & Speck. & & Gauss. & Shot & Imp. & Speck. \\
+\midrule
+Lower baseline & 0.296 & 0.337 & 0.310 & 0.361 & & 0.414 & 0.500 & 0.503 & 0.519 \\
+Upper baseline & 0.497 & 0.527 & 0.407 & 0.530 & & 0.583 & 0.637 & 0.546 & 0.639 \\
+AL only & 0.380 & 0.419 & 0.347 & 0.443 & & 0.485 & 0.555 & 0.514 & 0.568 \\
+Oracle (5\%/80\%) & 0.453 & 0.484 & 0.395 & 0.496 & & 0.589 & 0.631 & 0.549 & 0.631 \\
+Z-Score & 0.401 & 0.443 & 0.363 & 0.461 & & 0.522 & 0.597 & 0.516 & 0.601 \\
+ADWIN & 0.380 & 0.419 & 0.347 & 0.443 & & 0.485 & 0.555 & 0.514 & 0.568 \\
+DDM & 0.437 & 0.491 & 0.378 & 0.489 & & 0.557 & 0.612 & 0.515 & 0.610 \\
+Page--Hinkley & 0.404 & 0.445 & 0.357 & 0.449 & & 0.518 & 0.555 & 0.513 & 0.578 \\
+KS test & 0.441 & 0.473 & 0.395 & 0.501 & & 0.561 & 0.604 & 0.540 & 0.612 \\
+CUSUM & 0.432 & 0.482 & 0.368 & 0.483 & & 0.558 & 0.599 & 0.538 & 0.611 \\
+MMD & 0.450 & 0.490 & 0.397 & 0.494 & & 0.569 & 0.619 & 0.536 & 0.614 \\
+Adaptive MMD & 0.461 & 0.504 & 0.387 & 0.509 & & 0.575 & 0.627 & 0.542 & 0.627 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{drift_demo_overview_heatmaps.png}
+\caption{Left: post-shift accuracy of every algorithm in every scenario. Right: share of the lower-to-upper gap that is closed (Eq.~\eqref{eq:gap}); values above $100\%$ occur when an algorithm is better than the upper baseline in that scenario.}
+\label{fig:heatmaps}
+\end{figure}
+
+\subsection{Detector families}
+
+\paragraph{Active learning alone (no detector).} Background labelling at 5\% (45 labels) adds $+5.9$ accuracy points over the frozen model and lifts coverage from $0.53$ to $0.86$, because the calibrator re-estimates its threshold. It is the
+cheapest improvement but it pays with the largest prediction sets ($4.98$ classes): the recalibrated sets are wide but the model itself barely learns.
+This is the control that all detectors must beat; $96\%$ of the per-scenario-and-seed runs of the lower baseline are below it.
+
+\paragraph{Supervised (error-based) detectors.} Their input is the error on queried steps only; at a 5\% rate there are about 40 labelled steps in 800 and about 25 of them in the clean segment, so the statistics are very coarse. ADWIN never raises an alarm in any of the 24 streams and is
+therefore exactly equal to AL only. The Z-score detector fires in $33\%$ of the runs (121 steps after the shift when it does). Page--Hinkley fires in $79\%$ of the runs but late (296 steps on average; $352$ under gradual drift), so its gain is small. DDM is the best supervised method: it detects the drift in all runs after $154$ steps on average, closes $71\%$ of the gap and needs only $124$ labels.
+This is the most label-efficient result in the study. Because a detector can only be as fast as the labels it sees, these delays are a property of the protocol rather than of the algorithms (an earlier ablation in this repository showed that giving the detectors a free label on every step makes them much more active).
+DDM beats AL only in $88\%$ of the 24 streams, Page--Hinkley in $62\%$, and the Z-score in only $33\%$ (it often does not fire at all).
+
+\paragraph{Label-free detectors.} They see all 800 steps and therefore react much faster: first alarm after $32$ (MMD), $45$ (Adaptive MMD), $62$ (KS) and $86$ (CUSUM) steps. Their bursts, however, cost many labels. MMD alarms $11.7$ times per stream, has $2.0$ false alarms before the shift and consumes $556$ labels, more than the upper baseline.
+Since every alarm resets the reference and triggers a new burst, repeated alarms during the same drift cost labels, which have in this setting about the same effect as the original 5\% labelling, i.e.\ they chiefly help through the burst.
+CUSUM alarms most often ($13.3$) and has the lowest coverage ($0.74$) and the smallest sets ($2.68$): it fires so often that its calibration window is repeatedly reset and then re-estimated from few scores, which underestimates the quantile.
+Adaptive MMD addresses this by rebuilding its reference after an alarm; it needs only $3.9$ alarms and $357$ labels, reaches the best accuracy of all realistic detectors ($0.529$), the best coverage among them ($0.875$) and closes $88\%$ of the gap ($92\%$ in the gradual case). It beats AL only in all 24 streams, as do MMD and KS.
+
+\paragraph{Reliability.} The standard deviation over the three seeds of the scenario-averaged post-shift accuracy is $0.008$--$0.017$ for the drift-aware methods, $0.016$ for the lower baseline and $0.032$ for AL only, ADWIN and Page--Hinkley. Differences of $0.01$--$0.02$ (e.g.\ Adaptive MMD $0.529$ vs.\ oracle $0.528$ vs.\ MMD $0.521$ vs.\ KS $0.516$) are therefore within noise,
+while the groups \{upper, oracle, Adaptive MMD, MMD, KS, CUSUM, DDM\} and \{AL only, ADWIN, Page--Hinkley, Z-score\} are clearly separated.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{drift_demo_overview_cost_benefit.png}
+\caption{Left: accuracy vs.\ label cost (stars are the baselines). Right: share of the gap closed, mean over all scenarios.}
+\label{fig:cost}
+\end{figure}
+
+\subsection{Cost--benefit view}
+
+Figure~\ref{fig:cost} relates accuracy to label cost. The upper baseline (499 labels) is not on the Pareto front of what practical algorithms achieve: Adaptive MMD attains $0.529$ with $357$ labels, and the oracle attains $0.528$ with $313$. DDM (124 labels) and Z-score (75 labels) are the cheapest ways to improve over AL only.
+The label-free detectors MMD, KS and CUSUM spend more labels than Adaptive MMD for equal or lower accuracy. Because bursts are triggered by alarms, the number of alarms is directly a label cost,
+and an unselective detector approaches full supervision without reaching the upper baseline's accuracy.
+Since label budgets are not equalised (45 to 556 labels), part of each gain is ``more labels''; the table answers ``what does an alarm buy in this protocol'' rather than ``which detector is best per label''.
+
+\subsection{Trajectories}
+
+Figures~\ref{fig:traj-sudden} and~\ref{fig:traj-gradual} show rolling accuracy and coverage for Gaussian noise (the plots for the other noise types are produced by the demo in the same format).
+In the sudden case the frozen model's accuracy and coverage fall at $t=300$ and stay low; the upper baseline and the oracle recover within the burst, the label-free detectors recover after a few tens of steps and the error-based detectors only start to recover when they alarm (or not at all for ADWIN). In the gradual case the frozen model
+degrades step by step, the upper baseline follows the ramp closely, and each detector produces a sequence of partial recoveries; the repeated drops at $t=400,500,600$ are the new, more severe levels.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{drift_demo_trajectories_sudden_gaussian_noise.png}
+\caption{Gaussian noise, sudden drift: rolling accuracy and coverage (window 40, mean of 3 seeds). Left: supervised detectors, right: label-free detectors; both baselines, AL only and oracle are drawn in both panels. The dotted line marks the shift.}
+\label{fig:traj-sudden}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{drift_demo_trajectories_gradual_gaussian_noise.png}
+\caption{Gaussian noise, gradual drift (severity 1--5, one level per 100 steps), same layout. Dotted lines mark the five shifts.}
+\label{fig:traj-gradual}
+\end{figure}
+
+%--------------------------------------------------------------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{Main findings.}
+\begin{enumerate}[nosep]
+ \item Drift is expensive for a frozen model ($-42$ accuracy points, coverage $0.53$) and learning at every shift recovers $14$ points and the coverage guarantee.
+ \item Sudden drift is harder than gradual drift for the non-adapting model, but gradual drift is harder to \emph{detect}: detection delays grow for all error-based and confidence-based detectors, except MMD.
+ \item Embedding-based tests are the fastest and Adaptive MMD is the best compromise between accuracy, coverage and label cost. Closing the loop (rebuilding the reference after an alarm) matters more than the test statistic: plain MMD has the same detection speed but needs $556$ labels.
+ \item Error-based detectors are limited by label scarcity, not by the algorithms. ADWIN does not fire at all; DDM is the exception.
+ \item The ranking of the algorithms is stable across the four noise types; noise type mainly changes how much adaptation can recover (impulse noise at severity 5 is hard for every method).
+\end{enumerate}
+
+\paragraph{Why the oracle matches the upper baseline in gradual drift.}
+In the ramp, the oracle's five bursts cover the entire post-shift stream and so give it a label access almost identical to the upper baseline (492 vs.\ 499 labels).
+The difference between the two reference points is therefore mostly a difference of label budget, which should be remembered when the upper baseline is read as a ceiling: it is the ceiling of \emph{perfectly timed, fully labelled} adaptation within this model class (online update of two dense layers); it is not a limit for all learners.
+In individual scenarios, algorithms exceed it (Fig.~\ref{fig:heatmaps}: gap closed above $100\%$ for the oracle under gradual Gaussian and impulse noise).
+
+\paragraph{Threats to validity.}
+\begin{itemize}[nosep]
+ \item \textbf{Three seeds}, one model checkpoint. Seeds change the stream window, query decisions and detector randomness, but not the trained network. Differences below about $0.02$ should not be interpreted.
+ \item \textbf{Label budgets are not equalised.} Detectors with more alarms receive more labels.
+ \item \textbf{Hand-set detector parameters.} They were set for the sparse-label regime of the earlier benchmark and not tuned for the gradual scenarios; error-based detectors in particular might be improved with other settings.
+ \item \textbf{Definition of ``shift'' in the ramp.} Each severity increase is treated as a shift point for the oracle and the upper baseline, whereas the delay and detection metrics use only the first shift. A detector that fires late in the ramp is counted as detected, even if it missed the first levels.
+ \item \textbf{Single drift per stream.} Sudden drift has one change point; recovery to the clean distribution and repeated drifts are not covered.
+ \item \textbf{Limited online learning.} Only two dense layers are updated per label, so the gains from labels saturate early (the upper baseline is $+14$ points, far below the clean accuracy $0.82$).
+ \item \textbf{Noise only.} All drifts are CIFAR-10-C noise corruptions at the same severity scale; other corruption families (blur, weather, digital) and non-covariate drifts are out of scope.
+\end{itemize}
+
+\paragraph{Reproducibility.}
+The experiment is implemented in \texttt{src/experiments/drift\_demo.py}; the upper baseline is \texttt{upper\_baseline()} in \texttt{src/experiments/cifar10c\_suite.py}.
+\texttt{PYTHONPATH=src python -m experiments.drift\_demo} (7 worker processes: about 35 minutes on a 14-core CPU, plus about 25 minutes the first time to train the checkpoint) writes
+\texttt{artifacts/demo/report.md}, the per-run table \texttt{runs\_raw.csv}, the per-scenario table \texttt{summary\_by\_scenario.csv}, and all figures.
+Base seed 42; seeds are $42, 43, 44$.
+
+\begin{thebibliography}{9}
+\bibitem{hendrycks2019benchmarking} D.~Hendrycks and T.~Dietterich. Benchmarking neural network robustness to common corruptions and perturbations. \emph{ICLR}, 2019. (CIFAR-10-C)
+\bibitem{vovk2005algorithmic} V.~Vovk, A.~Gammerman and G.~Shafer. \emph{Algorithmic Learning in a Random World}. Springer, 2005. (conformal prediction)
+\bibitem{sadinle2019least} M.~Sadinle, J.~Lei and L.~Wasserman. Least ambiguous set-valued classifiers with bounded error levels. \emph{JASA}, 114(525):223--234, 2019. (LAC score)
+\bibitem{gretton2012kernel} A.~Gretton et al. A kernel two-sample test. \emph{JMLR}, 13:723--773, 2012. (MMD)
+\bibitem{bifet2007adwin} A.~Bifet and R.~Gavald\`a. Learning from time-changing data with adaptive windowing. \emph{SDM}, 2007. (ADWIN)
+\bibitem{gama2004learning} J.~Gama, P.~Medas, G.~Castillo and P.~Rodrigues. Learning with drift detection. \emph{SBIA}, 2004. (DDM)
+\bibitem{page1954continuous} E.~S.~Page. Continuous inspection schemes. \emph{Biometrika}, 41(1/2):100--115, 1954. (Page--Hinkley, CUSUM)
+\end{thebibliography}
+
+\end{document}
