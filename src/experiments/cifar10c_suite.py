@@ -124,6 +124,35 @@ def conformal_config() -> dict[str, Any]:
     }
 
 
+UPPER_BASELINE_NAME = "Upper Baseline (Learns at every shift)"
+LOWER_BASELINE_NAME = "Lower Baseline (Frozen, No AL, No Drift)"
+
+
+def upper_baseline(seed: int) -> dict[str, Any]:
+    """Learner that is told about every shift and then gets every label until the next shift.
+
+    The oracle alarms at each ground-truth shift (delay 0). After an alarm the label burst runs at
+    100% for the whole following segment (``engine.drift_burst`` is set by the caller), with no
+    background labeling before the first shift. Each label causes one online update and one
+    conformal recalibration step.
+    """
+    return {
+        "name": UPPER_BASELINE_NAME,
+        "group": "reference",
+        "supervised": False,
+        "signal": "step",
+        "active_policy": {
+            "enabled": True,
+            "name": "random",
+            "rate": 0.0,
+            "burst_rate": 1.0,
+            "seed": seed,
+        },
+        "drift_detector": {"enabled": True, "name": "oracle", "delay": 0},
+        "engine": {"burst_rate": 1.0},
+    }
+
+
 def configurations(seed: int, rate: float = 0.05, burst_rate: float = 0.8) -> list[dict[str, Any]]:
     """The 11 compared configurations. ``group`` drives figure grouping (<= 5 curves per figure)."""
     al = {"enabled": True, "name": "random", "rate": rate, "burst_rate": burst_rate, "seed": seed}

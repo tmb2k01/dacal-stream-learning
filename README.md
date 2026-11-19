@@ -6,6 +6,8 @@ Modular research framework for drift-adaptive conformal active learning in strea
 - Model/config notes: `docs/model_config.md`
 - CIFAR-10-C stream config notes: `docs/cifar10c_stream_config.md`
 - Synthetic stream config notes: `docs/synthetic_drift_stream_config.md`
+- Full demo (lower/upper baseline, sudden vs. gradual drift, 4 noise types): `docs/drift_demo.md`
+  (`PYTHONPATH=src python -m experiments.drift_demo`)
 
 ## Synthetic drift dataset generator
 The project now includes `SyntheticDriftStreamDataset` in `src/data/synthetic_dataset.py`.
